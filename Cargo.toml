@@ -1,0 +1,43 @@
+[package]
+name = "worshipflow-pro"
+version = "0.1.0"
+description = "Professional worship presentation system with integrated program scheduling"
+authors = ["Your Name"]
+license = "MIT"
+repository = ""
+edition = "2021"
+
+[[bin]]
+name = "worshipflow-pro"
+path = "src-tauri/src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.5", features = [ "protocol-asset", "dialog-all", "window-unminimize", "fs-write-file", "fs-read-dir", "window-show", "window-hide", "window-minimize", "window-unmaximize", "window-start-dragging", "window-maximize", "fs-read-file", "fs-exists", "window-close", "shell-open"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.30", features = ["bundled", "chrono"] }
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.21"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+log = "0.4"
+env_logger = "0.11"
+walkdir = "2.5"
+thiserror = "1.0"
+lazy_static = "1.4"
+rand = "0.8"
+base64 = "0.22.1"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "z"
+strip = true

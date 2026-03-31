@@ -1,0 +1,566 @@
+/* =============================================
+   BACKGROUND PICKER MODAL
+   ============================================= */
+
+.bg-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeOverlay 0.2s ease;
+}
+
+@keyframes fadeOverlay {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.bg-picker-modal {
+  background: #0f1420;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.5rem;
+  width: min(900px, 94vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+  animation: slideModal 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes slideModal {
+  from { transform: translateY(30px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0)   scale(1);    opacity: 1; }
+}
+
+/* Header */
+.bg-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bg-picker-header h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(135deg, #a78bfa, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.bg-picker-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.bg-picker-close:hover {
+  background: rgba(239,68,68,0.15);
+  border-color: rgba(239,68,68,0.4);
+  color: #ef4444;
+}
+
+/* Tabs */
+.bg-picker-tabs {
+  display: flex;
+  gap: 0;
+  padding: 1rem 2rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.bg-tab {
+  padding: 0.6rem 1.25rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: rgba(255,255,255,0.45);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: -1px;
+}
+
+.bg-tab:hover {
+  color: rgba(255,255,255,0.75);
+}
+
+.bg-tab.active {
+  color: #a78bfa;
+  border-bottom-color: #a78bfa;
+}
+
+/* Body */
+.bg-picker-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+}
+
+.bg-picker-body::-webkit-scrollbar { width: 6px; }
+.bg-picker-body::-webkit-scrollbar-track { background: transparent; }
+.bg-picker-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* "None" clear option */
+.bg-none-option {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 2px dashed rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.03);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1.5rem;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.bg-none-option:hover,
+.bg-none-option.selected {
+  border-color: rgba(167,139,250,0.5);
+  color: #a78bfa;
+  background: rgba(167,139,250,0.06);
+}
+
+.bg-none-swatch {
+  width: 56px;
+  height: 32px;
+  border-radius: 6px;
+  background: #050a12;
+  border: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+
+/* Premade grid */
+.bg-premade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.bg-premade-card {
+  border-radius: 0.875rem;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+}
+
+.bg-premade-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+}
+
+.bg-premade-card.selected {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167,139,250,0.3), 0 12px 32px rgba(0,0,0,0.4);
+}
+
+.bg-premade-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  background: #a78bfa;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: white;
+  line-height: 22px;
+  text-align: center;
+}
+
+.bg-premade-preview {
+  height: 120px;
+  width: 100%;
+  position: relative;
+}
+
+.bg-premade-info {
+  padding: 0.65rem 0.85rem;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+}
+
+.bg-premade-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.1rem;
+}
+
+.bg-premade-desc {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.5);
+  margin: 0;
+}
+
+/* Upload tab */
+.bg-upload-zone {
+  border: 2px dashed rgba(255,255,255,0.15);
+  border-radius: 1rem;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(255,255,255,0.02);
+}
+
+.bg-upload-zone:hover {
+  border-color: rgba(167,139,250,0.5);
+  background: rgba(167,139,250,0.04);
+}
+
+.bg-upload-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.bg-upload-zone h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+  color: white;
+}
+
+.bg-upload-zone p {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.4);
+  margin: 0;
+}
+
+.bg-upload-btn {
+  margin-top: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: linear-gradient(135deg, #7c3aed, #3b82f6);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bg-upload-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+}
+
+.bg-selected-image {
+  margin-top: 1.25rem;
+  border-radius: 0.875rem;
+  overflow: hidden;
+  border: 2px solid #a78bfa;
+  max-height: 200px;
+}
+
+.bg-selected-image img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.bg-selected-label {
+  padding: 0.5rem 0.75rem;
+  background: rgba(0,0,0,0.5);
+  color: rgba(255,255,255,0.6);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Footer */
+.bg-picker-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.25rem 2rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.2);
+}
+
+.bg-btn-cancel {
+  padding: 0.65rem 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bg-btn-cancel:hover {
+  background: rgba(255,255,255,0.06);
+  color: white;
+}
+
+.bg-btn-apply {
+  padding: 0.65rem 1.75rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: linear-gradient(135deg, #7c3aed, #3b82f6);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bg-btn-apply:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(124,58,237,0.4);
+}
+
+.bg-btn-apply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* =============================================
+   BUILT-IN ANIMATED BACKGROUNDS
+   Apply these classes to .output-window or .preview-box
+   ============================================= */
+
+/* 1. Heavenly Blue */
+.bg-heavenly-blue {
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  background-size: 300% 300%;
+  animation: heavenlyBlueShift 12s ease infinite;
+}
+
+@keyframes heavenlyBlueShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* 2. Sunset Fire */
+.bg-sunset-fire {
+  background: linear-gradient(135deg, #1a0533, #6b1a2e, #b5451b, #e8751a);
+  background-size: 300% 300%;
+  animation: sunsetFireShift 10s ease infinite;
+}
+
+@keyframes sunsetFireShift {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+/* 3. Aurora Borealis */
+.bg-aurora {
+  background: linear-gradient(120deg, #05050a 0%, #0a2a1a 25%, #112244 50%, #1a0a33 75%, #05050a 100%);
+  background-size: 400% 400%;
+  animation: auroraShift 16s ease infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.bg-aurora::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background:
+    radial-gradient(ellipse 60% 30% at 20% 50%, rgba(16,235,129,0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 25% at 80% 40%, rgba(99,102,241,0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 35% at 50% 70%, rgba(56,189,248,0.2) 0%, transparent 60%);
+  animation: auroraGlow 8s ease-in-out infinite alternate;
+}
+
+@keyframes auroraShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes auroraGlow {
+  from { transform: translate(-5%, -5%) rotate(-3deg); opacity: 0.7; }
+  to   { transform: translate(5%, 5%)  rotate(3deg);  opacity: 1.0; }
+}
+
+/* 4. Starfield */
+.bg-starfield {
+  background: #020408;
+  position: relative;
+  overflow: hidden;
+}
+
+.bg-starfield::before,
+.bg-starfield::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.9) 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 60%, rgba(255,255,255,0.8) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 40% 30%, rgba(255,255,255,0.95) 0%, transparent 100%),
+    radial-gradient(1px 1px at 55% 80%, rgba(255,255,255,0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 45%, rgba(255,255,255,0.85) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 85% 20%, rgba(255,255,255,0.9) 0%, transparent 100%),
+    radial-gradient(1px 1px at 15% 85%, rgba(255,255,255,0.75) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 10%, rgba(255,255,255,0.8) 0%, transparent 100%),
+    radial-gradient(2px 2px at 90% 70%, rgba(200,220,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 45% 55%, rgba(255,255,255,0.85) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 40%, rgba(255,255,255,0.7) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 75% 90%, rgba(255,255,255,0.9) 0%, transparent 100%),
+    radial-gradient(1px 1px at 5% 50%, rgba(255,255,255,0.8) 0%, transparent 100%),
+    radial-gradient(1px 1px at 95% 35%, rgba(255,255,255,0.75) 0%, transparent 100%),
+    radial-gradient(2px 2px at 50% 95%, rgba(180,200,255,0.5) 0%, transparent 100%);
+  animation: starTwinkle 4s ease-in-out infinite alternate;
+}
+
+.bg-starfield::after {
+  background-image:
+    radial-gradient(1px 1px at 18% 22%, rgba(255,255,255,0.85) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 36% 68%, rgba(255,255,255,0.9) 0%, transparent 100%),
+    radial-gradient(1px 1px at 62% 42%, rgba(255,255,255,0.75) 0%, transparent 100%),
+    radial-gradient(1px 1px at 78% 15%, rgba(255,255,255,0.8) 0%, transparent 100%),
+    radial-gradient(2px 2px at 88% 55%, rgba(200,215,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 22% 78%, rgba(255,255,255,0.85) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 48% 28%, rgba(255,255,255,0.9) 0%, transparent 100%),
+    radial-gradient(1px 1px at 92% 88%, rgba(255,255,255,0.7) 0%, transparent 100%);
+  animation-delay: -2s;
+  animation-duration: 5s;
+}
+
+@keyframes starTwinkle {
+  from { opacity: 0.6; }
+  to   { opacity: 1.0; }
+}
+
+/* 5. Holy Light */
+.bg-holy-light {
+  background: radial-gradient(ellipse at 50% 40%, #fffff0 0%, #fff5cc 20%, #e8c97a 50%, #8f6000 80%, #3a2500 100%);
+  background-size: 200% 200%;
+  animation: holyPulse 8s ease-in-out infinite alternate;
+}
+
+@keyframes holyPulse {
+  from { background-size: 200% 200%; background-position: 50% 40%; }
+  to   { background-size: 240% 240%; background-position: 50% 45%; }
+}
+
+/* 6. Ocean Waves */
+.bg-ocean-waves {
+  background: linear-gradient(180deg, #001a33 0%, #002d5e 30%, #003d7a 60%, #01579b 85%, #0388c5 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.bg-ocean-waves::before {
+  content: '';
+  position: absolute;
+  bottom: -20%;
+  left: -20%;
+  width: 140%;
+  height: 60%;
+  background:
+    radial-gradient(ellipse 80% 40% at 30% 100%, rgba(2,136,209,0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 30% at 70% 100%, rgba(0,60,120,0.4) 0%, transparent 70%);
+  animation: waveMove 7s ease-in-out infinite alternate;
+  border-radius: 50%;
+}
+
+.bg-ocean-waves::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 120%;
+  height: 50%;
+  background: radial-gradient(ellipse 90% 50% at 50% 100%, rgba(1,87,155,0.3) 0%, transparent 70%);
+  animation: waveMove 10s ease-in-out infinite alternate-reverse;
+  border-radius: 50%;
+}
+
+@keyframes waveMove {
+  from { transform: translateX(-5%) translateY(0) rotate(-1deg); }
+  to   { transform: translateX(5%)  translateY(-8%) rotate(1deg); }
+}
+
+/* 7. Golden Hour */
+.bg-golden-hour {
+  background: linear-gradient(145deg, #1a0d00, #4a1800, #8f4700, #c97d00, #e8b500, #f5d020);
+  background-size: 300% 300%;
+  animation: goldenShift 14s ease infinite;
+}
+
+@keyframes goldenShift {
+  0%   { background-position: 0% 100%; }
+  50%  { background-position: 100% 0%;  }
+  100% { background-position: 0% 100%; }
+}
+
+/* 8. Deep Forest */
+.bg-deep-forest {
+  background: linear-gradient(135deg, #020f05, #052e1a, #053d20, #0a6632, #054d25);
+  background-size: 300% 300%;
+  animation: forestShift 15s ease infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.bg-deep-forest::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 40% at 20% 60%, rgba(0,180,60,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 30%, rgba(0,140,50,0.1) 0%, transparent 70%);
+  animation: forestGlow 10s ease-in-out infinite alternate;
+}
+
+@keyframes forestShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes forestGlow {
+  from { opacity: 0.5; }
+  to   { opacity: 1.0; }
+}

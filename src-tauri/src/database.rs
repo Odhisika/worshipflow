@@ -1,0 +1,477 @@
+use rusqlite::{Connection, Result};
+use std::path::Path;
+
+pub fn initialize_database(db_path: &Path) -> Result<Connection> {
+    let conn = Connection::open(db_path)?;
+    
+    // Enable foreign keys
+    conn.execute("PRAGMA foreign_keys = ON", [])?;
+    
+    create_tables(&conn)?;
+    seed_default_admin(&conn)?;
+    seed_default_giving_types(&conn)?;
+    
+    Ok(conn)
+}
+
+fn seed_default_admin(conn: &Connection) -> Result<()> {
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM admins", [], |row| row.get(0))?;
+    if count == 0 {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        
+        // MVP: Storing plain text password for the default admin as requested for rapid prototyping
+        conn.execute(
+            "INSERT INTO admins (id, email, password_hash, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![id, "admin@church.com", "admin123", now],
+        )?;
+        log::info!("Seeded default admin user: admin@church.com");
+    }
+    Ok(())
+}
+
+fn seed_default_giving_types(conn: &Connection) -> Result<()> {
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM giving_types", [], |row| row.get(0))?;
+    if count == 0 {
+        let now = chrono::Utc::now().to_rfc3339();
+        let default_types = vec![
+            ("tithe", "Tithe", "10% of income dedicated to the church", true),
+            ("pledge", "Pledge", "Committed giving towards specific causes", true),
+            ("first_offering", "First Offering", "General church offering", false),
+            ("second_offering", "Second Offering", "Secondary general offering", false),
+            ("building_fund", "Building Fund", "Contributions for church building initiatives", false),
+        ];
+
+        for (id, name, desc, is_system) in default_types {
+            conn.execute(
+                "INSERT INTO giving_types (id, name, description, is_system, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                rusqlite::params![id, name, desc, is_system, now],
+            )?;
+        }
+        log::info!("Seeded default giving types");
+    }
+    Ok(())
+}
+
+fn create_tables(conn: &Connection) -> Result<()> {
+    // Songs table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS songs (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            lyrics TEXT NOT NULL,
+            key TEXT,
+            tempo INTEGER,
+            tags TEXT,
+            chords TEXT,
+            show_chords INTEGER DEFAULT 0,
+            arrangement TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Services table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS services (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            date TEXT NOT NULL,
+            theme TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Activities table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS activities (
+            id TEXT PRIMARY KEY,
+            service_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            duration_minutes INTEGER NOT NULL,
+            leader TEXT,
+            notes TEXT,
+            order_index INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Slides table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS slides (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            title TEXT,
+            content TEXT NOT NULL,
+            media_path TEXT,
+            background_path TEXT,
+            order_index INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Service items table (links activities to content)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS service_items (
+            id TEXT PRIMARY KEY,
+            service_id TEXT NOT NULL,
+            activity_id TEXT,
+            item_type TEXT NOT NULL,
+            item_id TEXT NOT NULL,
+            order_index INTEGER NOT NULL,
+            FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
+            FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE SET NULL
+        )",
+        [],
+    )?;
+
+    // Bible verses table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS bible_verses (
+            id INTEGER PRIMARY KEY,
+            book TEXT NOT NULL,
+            chapter INTEGER NOT NULL,
+            verse INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            version TEXT NOT NULL DEFAULT 'KJV',
+            UNIQUE(book, chapter, verse, version)
+        )",
+        [],
+    )?;
+
+    // Bible books table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS bible_books (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            testament TEXT NOT NULL,
+            chapters INTEGER NOT NULL
+        )",
+        [],
+    )?;
+
+    // Bookmarks table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS bookmarks (
+            id TEXT PRIMARY KEY,
+            book TEXT NOT NULL,
+            chapter INTEGER NOT NULL,
+            verse INTEGER NOT NULL,
+            label TEXT,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Media library table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS media (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            thumbnail_path TEXT,
+            tags TEXT,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Settings table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Create indexes for better performance
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_activities_service 
+         ON activities(service_id, order_index)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_bible_lookup 
+         ON bible_verses(book, chapter, verse)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_bible_chapter 
+         ON bible_verses(book, chapter)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_service_items 
+         ON service_items(service_id, order_index)",
+        [],
+    )?;
+
+    // Admins table for Church Management
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS admins (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Members table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS members (
+            id TEXT PRIMARY KEY,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            email TEXT,
+            phone TEXT,
+            address TEXT,
+            dob TEXT,
+            gender TEXT,
+            hometown TEXT,
+            occupation TEXT,
+            is_baptized BOOLEAN NOT NULL DEFAULT 0,
+            marital_status TEXT,
+            emergency_contact TEXT,
+            role TEXT NOT NULL DEFAULT 'member',
+            status TEXT NOT NULL DEFAULT 'active',
+            joined_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Migrations for members table
+    let columns = vec![
+        ("dob", "TEXT"),
+        ("gender", "TEXT"),
+        ("hometown", "TEXT"),
+        ("occupation", "TEXT"),
+        ("is_baptized", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("marital_status", "TEXT"),
+        ("emergency_contact", "TEXT"),
+    ];
+
+    for (name, col_type) in columns {
+        let check_col = format!("SELECT COUNT(*) FROM pragma_table_info('members') WHERE name='{}'", name);
+        let count: i32 = conn.query_row(&check_col, [], |row| row.get(0)).unwrap_or(0);
+        if count == 0 {
+            let alter_query = format!("ALTER TABLE members ADD COLUMN {} {}", name, col_type);
+            conn.execute(&alter_query, [])?;
+            log::info!("Added column {} to members table", name);
+        }
+    }
+
+    // Finance - Giving Types
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS giving_types (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            is_system BOOLEAN NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Finance - Contributions
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS contributions (
+            id TEXT PRIMARY KEY,
+            type_id TEXT NOT NULL,
+            member_id TEXT,
+            amount REAL NOT NULL,
+            date TEXT NOT NULL,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (type_id) REFERENCES giving_types(id),
+            FOREIGN KEY (member_id) REFERENCES members(id)
+        )",
+        [],
+    )?;
+
+    // Small Groups / Ministries
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS groups (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            meeting_day TEXT,
+            meeting_time TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS group_members (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            member_id TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'Member',
+            joined_at TEXT NOT NULL,
+            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Attendance table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS attendance (
+            id TEXT PRIMARY KEY,
+            service_id TEXT NOT NULL,
+            member_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+            UNIQUE(service_id, member_id)
+        )",
+        [],
+    )?;
+
+    // Events table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS events (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            date TEXT NOT NULL,
+            time TEXT,
+            location TEXT,
+            category TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Subscribers table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS subscribers (
+            id TEXT PRIMARY KEY,
+            member_id TEXT UNIQUE,
+            email_enabled BOOLEAN NOT NULL DEFAULT 1,
+            sms_enabled BOOLEAN NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Campaigns table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS campaigns (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            recipient_count INTEGER DEFAULT 0,
+            open_rate REAL DEFAULT 0,
+            click_rate REAL DEFAULT 0,
+            status TEXT NOT NULL,
+            scheduled_at TEXT,
+            sent_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Volunteer Roles
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS volunteer_roles (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            required_count INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Volunteer Schedules
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS volunteer_schedules (
+            id TEXT PRIMARY KEY,
+            role_id TEXT NOT NULL,
+            member_id TEXT NOT NULL,
+            service_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (role_id) REFERENCES volunteer_roles(id),
+            FOREIGN KEY (member_id) REFERENCES members(id),
+            FOREIGN KEY (service_id) REFERENCES services(id)
+        )",
+        [],
+    )?;
+
+    // Member Relationships (for Child Check-In)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS member_relationships (
+            id TEXT PRIMARY KEY,
+            child_id TEXT NOT NULL,
+            guardian_id TEXT NOT NULL,
+            relationship_type TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (child_id) REFERENCES members(id) ON DELETE CASCADE,
+            FOREIGN KEY (guardian_id) REFERENCES members(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Check-In Sessions
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS check_ins (
+            id TEXT PRIMARY KEY,
+            member_id TEXT NOT NULL,
+            service_id TEXT,
+            event_id TEXT,
+            location TEXT,
+            check_in_time TEXT NOT NULL,
+            check_out_time TEXT,
+            security_code TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+            FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE SET NULL,
+            FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL
+        )",
+        [],
+    )?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_database_creation() {
+        let test_db = "test_worship.db";
+        let result = initialize_database(Path::new(test_db));
+        assert!(result.is_ok());
+        fs::remove_file(test_db).ok();
+    }
+}

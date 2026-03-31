@@ -1,0 +1,275 @@
+.leader-view {
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+  display: flex;
+  flex-direction: column;
+  color: white;
+  overflow: hidden;
+}
+
+/* Waiting State */
+.waiting-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3rem;
+}
+
+.clock-large {
+  font-size: 8rem;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.waiting-message {
+  text-align: center;
+}
+
+.waiting-icon {
+  font-size: 6rem;
+  margin-bottom: 2rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.waiting-message h2 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  font-weight: 300;
+}
+
+.waiting-message p {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Header */
+.leader-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rem 4rem;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.current-clock {
+  font-size: 2.5rem;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+}
+
+.service-info {
+  display: flex;
+  gap: 3rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.info-item .label {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.info-item .value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #3b82f6;
+}
+
+/* Main Display */
+.timer-main-display {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+}
+
+.activity-title {
+  font-size: 4rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 4rem;
+  max-width: 80%;
+  line-height: 1.2;
+}
+
+.countdown-massive {
+  position: relative;
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.overtime-indicator {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ef4444;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 2rem;
+  animation: flash 1s ease-in-out infinite;
+}
+
+@keyframes flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.countdown-time {
+  font-size: 18rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #10b981;
+  text-shadow: 0 0 60px currentColor;
+  transition: color 0.3s;
+}
+
+.leader-view.warning .countdown-time {
+  color: #f59e0b;
+}
+
+.leader-view.overtime .countdown-time {
+  color: #ef4444;
+  animation: pulse-scale 1s ease-in-out infinite;
+}
+
+@keyframes pulse-scale {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.countdown-massive.paused .countdown-time {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.paused-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3rem;
+  font-weight: 700;
+  color: #f59e0b;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+/* Time Indicators */
+.time-indicators {
+  display: flex;
+  gap: 6rem;
+}
+
+.indicator {
+  text-align: center;
+}
+
+.indicator-label {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1rem;
+}
+
+.indicator-value {
+  font-size: 3.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Footer */
+.leader-footer {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 2rem 4rem;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.total-time,
+.remaining-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.total-time .label,
+.remaining-time .label {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.total-time .value,
+.remaining-time .value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: white;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1920px) {
+  .countdown-time {
+    font-size: 14rem;
+  }
+  
+  .activity-title {
+    font-size: 3rem;
+  }
+}
+
+@media (max-width: 1440px) {
+  .countdown-time {
+    font-size: 12rem;
+  }
+  
+  .activity-title {
+    font-size: 2.5rem;
+  }
+  
+  .indicator-value {
+    font-size: 2.5rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .countdown-time {
+    font-size: 10rem;
+  }
+  
+  .activity-title {
+    font-size: 2rem;
+  }
+}

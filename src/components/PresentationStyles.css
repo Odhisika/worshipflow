@@ -1,0 +1,155 @@
+/* Add to the bottom or replace relevant sections in existing output window CSS */
+
+/* Standby Screen Logo */
+.standby-logo {
+  max-width: 60vw;
+  max-height: 40vh;
+  object-fit: contain;
+  filter: drop-shadow(0 0 30px rgba(0, 0, 0, 0.5));
+  animation: fadeIn 1s ease-out;
+}
+
+/* ========================
+   PRESENTATION STYLES
+   ======================== */
+
+/* Content Wrapper provides a consistent bounding box */
+.content-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 1. Classic Full (Default) */
+.style-classic .slide-display {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.style-classic .content-wrapper {
+  align-items: center;
+  justify-content: center;
+}
+
+/* 2. Lower Third (News Broadcast Style) */
+.style-lower-third .slide-display {
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 0 4rem 12vh 4rem; /* Sit above the ticker */
+  text-align: left;
+}
+.style-lower-third .content-wrapper {
+  align-items: flex-start;
+  justify-content: flex-end;
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.7), transparent);
+  padding: 2.5rem 4rem;
+  border-left: 6px solid var(--primary-blue);
+  border-radius: 8px;
+  max-width: 80%;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+}
+.style-lower-third .output-title {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.style-lower-third .output-content {
+  font-size: 2.8rem;
+  max-height: 40vh; /* Don't cover whole screen */
+  text-align: left;
+}
+
+/* 3. Cinematic (Wide, elegant, centered small-caps style) */
+.style-cinematic .slide-display {
+  align-items: center;
+  justify-content: center;
+  padding: 0 10vw;
+}
+.style-cinematic .content-wrapper {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.style-cinematic .output-title {
+  font-size: 1.8rem;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 3rem;
+  font-weight: 300;
+}
+.style-cinematic .output-content {
+  font-size: 3.2rem;
+  line-height: 2;
+  font-family: 'Georgia', serif; /* Cinematic serif */
+  font-style: italic;
+  letter-spacing: 1px;
+}
+
+/* ========================
+   NEWS TICKER
+   ======================== */
+
+.news-ticker {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: 6vh;
+  min-height: 50px;
+  background: rgba(15, 23, 42, 0.9);
+  display: flex;
+  align-items: center;
+  z-index: 100;
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+}
+
+.ticker-label {
+  background: var(--primary-blue);
+  color: white;
+  font-weight: 800;
+  height: 100%;
+  padding: 0 2vw;
+  display: flex;
+  align-items: center;
+  z-index: 101;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 1.2rem;
+  box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+}
+
+.ticker-text-container {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ticker-text {
+  position: absolute;
+  white-space: nowrap;
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: #f1f5f9;
+  padding-left: 100%;
+  animation: tickerScroll 25s linear infinite;
+}
+
+@keyframes tickerScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Adjust slide display padding if ticker is active */
+.style-classic .slide-display,
+.style-cinematic .slide-display {
+  padding-bottom: 8vh; /* Make room for ticker */
+}

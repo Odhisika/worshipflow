@@ -1,0 +1,302 @@
+/* ========================
+   OUTPUT / PROJECTION WINDOW
+   ======================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #000;
+  overflow: hidden;
+}
+
+.output-window {
+  width: 100vw;
+  height: 100vh;
+  background: #050a12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: white;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  position: relative;
+}
+
+/* Background Layers */
+.output-bg-container {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.output-bg-layer {
+  position: absolute;
+  inset: -20px; /* Slight bleed to hide blur edges */
+  z-index: 1;
+}
+
+.output-bg-layer.is-image {
+  filter: blur(8px);
+  transform: scale(1.03); /* Counteract blur edge contraction */
+}
+
+.output-bg-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.45); /* Darken everything for text contrast */
+}
+
+/* Ensure slide content is above background */
+.slide-display, .timer-overlay {
+  position: relative;
+  z-index: 10;
+}
+
+/* ========================
+   BBC-STYLE CHANNEL WATERMARK
+   ======================== */
+
+.church-watermark {
+  position: absolute;
+  top: 3%;
+  left: 3%;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0.6;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
+  transition: opacity 0.3s ease;
+  pointer-events: none; /* Don't block clicks */
+  animation: fadeIn 1s ease-out;
+}
+
+.church-watermark:hover {
+  opacity: 0.85;
+}
+
+.watermark-logo {
+  height: 56px;
+  width: auto;
+  object-fit: contain;
+}
+
+.watermark-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* Blank screen */
+.output-window.blank {
+
+  background: #000;
+}
+
+/* Waiting / standby screen */
+.waiting-message {
+  text-align: center;
+  opacity: 0.8;
+}
+
+.waiting-message .logo {
+  font-size: 4rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1.25rem;
+  letter-spacing: -1px;
+}
+
+.waiting-message p,
+.standby-church-name {
+  font-size: 1.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 1rem;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ========================
+   SLIDE DISPLAY
+   ======================== */
+
+.slide-display {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 7rem;
+  text-align: center;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.output-title {
+  font-size: 2.8rem;
+  font-weight: 700;
+  margin-bottom: 2.5rem;
+  color: #3b82f6;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 40px rgba(59, 130, 246, 0.4);
+}
+
+.output-content {
+  font-size: 3.5rem;
+  line-height: 1.75;
+  white-space: pre-line;
+  max-width: 90%;
+  max-height: 70vh;
+  overflow-y: auto;
+  font-weight: 400;
+  color: #f0f4ff;
+}
+
+/* Hide scrollbar for clean projection */
+.output-content::-webkit-scrollbar {
+  display: none;
+}
+
+/* ========================
+   SLIDE TYPE OVERRIDES
+   ======================== */
+
+.slide-song .output-title {
+  font-size: 2.5rem;
+  color: #60a5fa;
+}
+
+.slide-song .output-content {
+  font-size: 3.2rem;
+  line-height: 1.7;
+  font-weight: 500;
+}
+
+.slide-bible .output-title {
+  font-size: 2.5rem;
+  color: #a78bfa;
+  text-shadow: 0 0 40px rgba(139, 92, 246, 0.4);
+}
+
+.slide-bible .output-content {
+  font-size: 2.8rem;
+  line-height: 1.8;
+  font-style: italic;
+  color: #e8eeff;
+}
+
+.slide-text .output-content {
+  font-size: 3.2rem;
+}
+
+.slide-announcement .output-title {
+  color: #34d399;
+  text-shadow: 0 0 40px rgba(52, 211, 153, 0.4);
+}
+
+.slide-announcement .output-content {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: #10b981;
+}
+
+/* ========================
+   ANIMATION
+   ======================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================
+   TIMER MODE VISUALS
+   ======================== */
+
+.output-window.timer-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-primary); 
+  position: relative;
+  overflow: hidden;
+}
+
+.output-window.timer-mode::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
+.timer-overlay {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3vw;
+  width: 90%;
+  max-width: 1400px;
+  background: rgba(30, 30, 46, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 4vw;
+  border-radius: 2vw;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.timer-activity-title {
+  font-size: 5vw;
+  font-weight: 800;
+  color: white;
+  text-align: center;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  line-height: 1.2;
+}
+
+.timer-ticking-display {
+  font-size: 10vw;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #10b981;
+  text-shadow: 0 0 40px rgba(16, 185, 129, 0.5);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+  transition: color 0.3s ease;
+}
+
+.timer-mode.overrun .timer-ticking-display {
+  color: #ef4444;
+  text-shadow: 0 0 40px rgba(239, 68, 68, 0.5);
+}
+
+.overrun-indicator {
+  font-size: 8vw;
+  font-weight: 900;
+}
