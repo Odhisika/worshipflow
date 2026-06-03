@@ -1,11 +1,14 @@
 use crate::error::{AppError, AppResult};
 use crate::models::BibleVerse;
 use crate::repositories::bible::BibleRepository;
+use crate::repositories::settings::SettingsRepository;
 use crate::AppState;
 use serde::Deserialize;
-use tauri::State;
+use tauri::{Manager, State};
 use std::fs::File;
 use std::io::BufReader;
+
+const ACTIVE_BIBLE_VERSION_KEY: &str = "active_bible_version";
 
 #[derive(Deserialize)]
 struct BibleVerseJson {
@@ -48,9 +51,10 @@ pub async fn get_bible_verses(
     chapter: i32,
     start_verse: i32,
     end_verse: Option<i32>,
+    version: Option<String>,
 ) -> AppResult<Vec<BibleVerse>> {
     let conn = state.db.lock().unwrap();
-    BibleRepository::get_verses(&conn, &book, chapter, start_verse, end_verse)
+    BibleRepository::get_verses(&conn, &book, chapter, start_verse, end_verse, version.as_deref())
 }
 
 #[tauri::command]
@@ -58,18 +62,20 @@ pub async fn get_chapter_verses(
     state: State<'_, AppState>,
     book: String,
     chapter: i32,
+    version: Option<String>,
 ) -> AppResult<Vec<BibleVerse>> {
     let conn = state.db.lock().unwrap();
-    BibleRepository::get_chapter_verses(&conn, &book, chapter)
+    BibleRepository::get_chapter_verses(&conn, &book, chapter, version.as_deref())
 }
 
 #[tauri::command]
 pub async fn search_bible(
     state: State<'_, AppState>,
     query: String,
+    version: Option<String>,
 ) -> AppResult<Vec<BibleVerse>> {
     let conn = state.db.lock().unwrap();
-    BibleRepository::search_verses(&conn, &query)
+    BibleRepository::search_verses(&conn, &query, version.as_deref())
 }
 
 #[tauri::command]
@@ -114,24 +120,30 @@ pub fn perform_bible_import(
     app_handle: &tauri::AppHandle,
     state: &AppState,
 ) -> AppResult<usize> {
-    log::info!("Starting full KJV Bible import...");
-    println!("DEBUG: Starting full KJV Bible import...");
+    perform_bible_import_from_file(app_handle, state, "kjv_bible.json")
+}
 
-    // Try multiple possible locations for the resource to be more resilient
+pub fn perform_bible_import_from_file(
+    app_handle: &tauri::AppHandle,
+    state: &AppState,
+    filename: &str,
+) -> AppResult<usize> {
+    log::info!("Starting Bible import from {}...", filename);
+    println!("DEBUG: Starting Bible import from {}...", filename);
+
     let resource_path = app_handle
-        .path_resolver()
-        .resolve_resource("resources/kjv_bible.json")
-        .filter(|p| p.exists()) // Only use if it actually exists
+        .path()
+        .resolve(format!("resources/{}", filename), tauri::path::BaseDirectory::Resource)
+        .ok()
+        .filter(|p| p.exists())
         .or_else(|| {
-            // Fallback 1: Try finding it relative to the current working directory (useful during cargo run from root)
             let current_dir = std::env::current_dir().ok()?;
             let paths = vec![
-                current_dir.join("src-tauri").join("resources").join("kjv_bible.json"),
-                current_dir.join("resources").join("kjv_bible.json"),
-                current_dir.join("target").join("debug").join("resources").join("kjv_bible.json"),
-                current_dir.join("src-tauri").join("target").join("debug").join("resources").join("kjv_bible.json"),
+                current_dir.join("src-tauri").join("resources").join(filename),
+                current_dir.join("resources").join(filename),
+                current_dir.join("target").join("debug").join("resources").join(filename),
+                current_dir.join("src-tauri").join("target").join("debug").join("resources").join(filename),
             ];
-            
             for path in paths {
                 if path.exists() {
                     println!("DEBUG: Found Bible JSON at fallback path: {:?}", path);
@@ -141,21 +153,20 @@ pub fn perform_bible_import(
             None
         })
         .or_else(|| {
-            // Fallback 2: Using app_data_dir for deployed apps
-            let app_dir = app_handle.path_resolver().app_data_dir()?;
-            let path = app_dir.join("resources").join("kjv_bible.json");
+            let app_dir = app_handle.path().app_data_dir().ok()?;
+            let path = app_dir.join("resources").join(filename);
             if path.exists() { Some(path) } else { None }
         })
         .ok_or_else(|| {
-            println!("DEBUG ERROR: Could not resolve kjv_bible.json resource path");
-            AppError::Unknown(
-                "Could not resolve kjv_bible.json resource path. Ensure the file exists in src-tauri/resources/".to_string(),
-            )
+            println!("DEBUG ERROR: Could not resolve {} resource path", filename);
+            AppError::Unknown(format!(
+                "Could not resolve {} resource path. Ensure the file exists in src-tauri/resources/",
+                filename
+            ))
         })?;
 
     println!("DEBUG: Resolved Bible resource path: {:?}", resource_path);
 
-    // Open the file with a buffered reader for efficiency
     let file = File::open(&resource_path)
         .map_err(|e| {
             println!("DEBUG ERROR: Failed to open Bible JSON file at {:?}: {}", resource_path, e);
@@ -163,7 +174,6 @@ pub fn perform_bible_import(
         })?;
     let reader = BufReader::new(file);
 
-    // Parse the JSON directly from the reader
     let bible_data: BibleDataJson = serde_json::from_reader(reader)
         .map_err(|e| {
             log::error!("Failed to parse Bible JSON: {}", e);
@@ -172,7 +182,6 @@ pub fn perform_bible_import(
 
     log::info!("Successfully parsed Bible JSON. Starting database insertion...");
 
-    // Convert to flat verse tuples
     let mut verses: Vec<(String, i32, i32, String, String)> = Vec::new();
     let version = bible_data.version.clone();
 
@@ -196,11 +205,7 @@ pub fn perform_bible_import(
     log::info!("Flattened {} verses. Beginning transaction...", count);
 
     let conn = state.db.lock().unwrap();
-
-    // Initialize the canonical book list first
     BibleRepository::initialize_books(&conn)?;
-
-    // Bulk import all verses
     BibleRepository::bulk_import_verses(&conn, verses)?;
 
     log::info!("Successfully imported {} verses into the database.", count);
@@ -213,4 +218,38 @@ pub async fn import_full_kjv_bible(
     app_handle: tauri::AppHandle,
 ) -> AppResult<usize> {
     perform_bible_import(&app_handle, &state)
+}
+
+#[tauri::command]
+pub async fn import_bible_version_file(
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+    filename: String,
+) -> AppResult<usize> {
+    perform_bible_import_from_file(&app_handle, &state, &filename)
+}
+
+#[tauri::command]
+pub async fn get_bible_versions(
+    state: State<'_, AppState>,
+) -> AppResult<Vec<String>> {
+    let conn = state.db.lock().unwrap();
+    BibleRepository::get_available_versions(&conn)
+}
+
+#[tauri::command]
+pub async fn get_active_bible_version(
+    state: State<'_, AppState>,
+) -> AppResult<Option<String>> {
+    let conn = state.db.lock().unwrap();
+    SettingsRepository::get_key(&conn, ACTIVE_BIBLE_VERSION_KEY)
+}
+
+#[tauri::command]
+pub async fn set_active_bible_version(
+    state: State<'_, AppState>,
+    version: String,
+) -> AppResult<()> {
+    let conn = state.db.lock().unwrap();
+    SettingsRepository::set_key(&conn, ACTIVE_BIBLE_VERSION_KEY, &version)
 }

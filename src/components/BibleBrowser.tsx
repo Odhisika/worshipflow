@@ -4,9 +4,25 @@ import { presentationApi } from '../api/presentation';
 import {
   MdMenuBook, MdSearch, MdCheckCircle,
   MdAutoAwesome, MdChevronLeft, MdChevronRight, MdHistory,
-  MdClose, MdOutlineLiveTv
+  MdClose, MdOutlineLiveTv, MdArrowDropDown
 } from 'react-icons/md';
 import './BibleBrowser.css';
+
+const VERSION_LABELS: Record<string, string> = {
+  'KJV': 'King James Version',
+  'NKJV': 'New King James Version',
+  'NWT': 'New World Translation',
+  'NIV': 'New International Version',
+  'ESV': 'English Standard Version',
+  'NASB': 'New American Standard Bible',
+  'NLT': 'New Living Translation',
+  'CSB': 'Christian Standard Bible',
+  'AMP': 'Amplified Bible',
+};
+
+function formatVersionLabel(version: string): string {
+  return VERSION_LABELS[version] || version;
+}
 
 const BibleBrowser: React.FC = () => {
   // Data state
@@ -18,6 +34,13 @@ const BibleBrowser: React.FC = () => {
   const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
   const [showVerseDropdown, setShowVerseDropdown] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  // Version state
+  const [versions, setVersions] = useState<string[]>([]);
+  const [activeVersion, setActiveVersion] = useState<string>('KJV');
+  const [showVersionDropdown, setShowVersionDropdown] = useState(false);
+  const versionBtnRef = useRef<HTMLButtonElement>(null);
+  const versionListRef = useRef<HTMLDivElement>(null);
 
   // Refs
   const readerRef = useRef<HTMLDivElement>(null);
@@ -59,6 +82,16 @@ const BibleBrowser: React.FC = () => {
       if (mappedBooks.length > 0 && !selectedBook) {
         setSelectedBook(mappedBooks[0].name);
       }
+
+      const activeVer = await bibleApi.getActiveVersion();
+      if (activeVer) {
+        setActiveVersion(activeVer);
+      }
+
+      const vers = await bibleApi.getVersions();
+      if (vers.length > 0) {
+        setVersions(vers);
+      }
     } catch (error) {
       console.error('Initialization error:', error);
     }
@@ -86,12 +119,11 @@ const BibleBrowser: React.FC = () => {
     };
   }, [verseCount, loadInitialData]);
 
-  const loadVerses = useCallback(async (book: string, ch: number) => {
+  const loadVerses = useCallback(async (book: string, ch: number, version?: string) => {
     if (!book || !isBibleLoaded) return;
     setIsLoading(true);
     try {
-      // Use getChapterVerses to load every verse in the chapter at once
-      const result = await bibleApi.getChapterVerses(book, ch);
+      const result = await bibleApi.getChapterVerses(book, ch, version ?? activeVersion);
       setVerses(result);
     } catch (error) {
       console.error('Lookup error:', error);
@@ -99,13 +131,13 @@ const BibleBrowser: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isBibleLoaded]);
+  }, [isBibleLoaded, activeVersion]);
 
   useEffect(() => {
     if (selectedBook && chapter) {
-      loadVerses(selectedBook, chapter);
+      loadVerses(selectedBook, chapter, activeVersion);
     }
-  }, [selectedBook, chapter, loadVerses]);
+  }, [selectedBook, chapter, activeVersion, loadVerses]);
 
   const handleChapterChange = (delta: number) => {
     const newCh = chapter + delta;
@@ -119,14 +151,45 @@ const BibleBrowser: React.FC = () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     try {
-      const results = await bibleApi.search(searchQuery);
-      setSearchResults(results.slice(0, 50)); // Cap at 50 for performance
+      const results = await bibleApi.search(searchQuery, activeVersion);
+      setSearchResults(results.slice(0, 50));
     } catch (error) {
       console.error('Search error:', error);
     } finally {
       setIsSearching(false);
     }
   };
+
+  const handleVersionChange = async (version: string) => {
+    setShowVersionDropdown(false);
+    if (version === activeVersion) return;
+    setActiveVersion(version);
+    try {
+      await bibleApi.setActiveVersion(version);
+      if (selectedBook && chapter) {
+        loadVerses(selectedBook, chapter, version);
+      }
+      showNotification(`Switched to ${formatVersionLabel(version)}`);
+    } catch (error) {
+      console.error('Failed to switch version:', error);
+      showNotification('Failed to switch Bible version', 'error');
+    }
+  };
+
+  // Close version dropdown on outside click
+  useEffect(() => {
+    if (!showVersionDropdown) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        versionBtnRef.current?.contains(target) ||
+        versionListRef.current?.contains(target)
+      ) return;
+      setShowVersionDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showVersionDropdown]);
 
   const addToPresentation = async (verse: BibleVerse) => {
     try {
@@ -191,13 +254,46 @@ const BibleBrowser: React.FC = () => {
       <div className="bible-status-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <MdMenuBook size={20} color="var(--accent-primary)" />
-          <span style={{ fontWeight: 600 }}>KJV Holy Bible</span>
+
+          {/* Version Selector */}
+          <div className="version-selector-wrapper">
+            <button
+              ref={versionBtnRef}
+              className="version-selector-btn"
+              onClick={() => setShowVersionDropdown(!showVersionDropdown)}
+            >
+              <span className="version-label">{formatVersionLabel(activeVersion)}</span>
+              <MdArrowDropDown size={20} className={`version-arrow${showVersionDropdown ? ' open' : ''}`} />
+            </button>
+
+            {showVersionDropdown && (
+              <div
+                ref={versionListRef}
+                className="version-dropdown-list"
+              >
+                {versions.length === 0 ? (
+                  <div className="version-dropdown-empty">No versions loaded</div>
+                ) : (
+                  versions.map(v => (
+                    <div
+                      key={v}
+                      className={`version-dropdown-item${v === activeVersion ? ' active' : ''}`}
+                      onMouseDown={(e) => { e.preventDefault(); handleVersionChange(v); }}
+                    >
+                      <span className="version-dropdown-name">{v}</span>
+                      <span className="version-dropdown-full">{formatVersionLabel(v)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div className={`status-badge ${isBibleLoaded ? 'complete' : 'loading'}`}>
             {isBibleLoaded ? <MdCheckCircle /> : <MdAutoAwesome className="spin-slow" />}
-            {isBibleInitializing ? `Initializing... ${verseCount.toLocaleString()} verses` : `${verseCount.toLocaleString()} Verses Available`}
+            {isBibleInitializing ? `Initializing... ${verseCount.toLocaleString()} verses` : `${verseCount.toLocaleString()} Verses`}
           </div>
         </div>
       </div>

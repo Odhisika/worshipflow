@@ -105,6 +105,15 @@ impl PresentationState {
         self.slides.push(slide);
     }
 
+    /// Add a slide and immediately navigate to it (for live bible/text inserts).
+    pub fn add_slide_and_goto(&mut self, mut slide: Slide) {
+        if slide.background_path.is_none() {
+            slide.background_path = self.slides.iter().find_map(|s| s.background_path.clone());
+        }
+        self.slides.push(slide);
+        self.current_index = self.slides.len() - 1;
+    }
+
     pub fn remove_slide(&mut self, index: usize) -> AppResult<()> {
         if index < self.slides.len() {
             self.slides.remove(index);

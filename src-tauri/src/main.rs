@@ -38,9 +38,10 @@ fn main() {
     println!("DEBUG: Current working directory: {:?}", std::env::current_dir().ok());
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // Get app data directory
-            let app_dir = app.path_resolver()
+            let app_dir = app.path()
                 .app_data_dir()
                 .expect("Failed to get app data directory");
 
@@ -58,25 +59,35 @@ fn main() {
             };
             app.manage(app_state);
 
-            // Auto-initialize Bible in background if empty
-            let app_handle = app.handle();
+            // Auto-initialize Bible versions if not already imported
+            let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let state = app_handle.state::<AppState>();
-                let conn = state.db.lock().unwrap();
-                
-                match crate::repositories::bible::BibleRepository::get_verse_count(&conn) {
-                    Ok(count) => {
-                        if count == 0 {
-                            println!("DEBUG: Bible is empty. Starting auto-import...");
-                            drop(conn); // Release lock before calling import which will re-lock
-                            if let Err(e) = crate::commands_bible::perform_bible_import(&app_handle, &state) {
-                                println!("DEBUG ERROR: Failed to auto-import Bible: {:?}", e);
-                            }
+                let version_files = vec![
+                    ("kjv_bible.json", "KJV"),
+                    ("web_bible.json", "WEB"),
+                    ("asv_bible.json", "ASV"),
+                    ("ylt_bible.json", "YLT"),
+                ];
+
+                for (file, label) in &version_files {
+                    let conn = state.db.lock().unwrap();
+                    let already_imported = match crate::repositories::bible::BibleRepository::get_verse_count_for_version(&conn, label) {
+                        Ok(c) => c > 0,
+                        Err(_) => false,
+                    };
+                    drop(conn);
+
+                    if already_imported {
+                        println!("DEBUG: {} ({}) already imported, skipping.", label, file);
+                    } else {
+                        println!("DEBUG: Importing {} ({})...", label, file);
+                        if let Err(e) = crate::commands_bible::perform_bible_import_from_file(&app_handle, &state, file) {
+                            println!("DEBUG ERROR: Failed to import {}: {:?}", file, e);
                         } else {
-                            println!("DEBUG: Bible already has {} verses.", count);
+                            println!("DEBUG: Successfully imported {} ({})", label, file);
                         }
                     }
-                    Err(e) => println!("DEBUG ERROR: Failed to check Bible verse count: {:?}", e),
                 }
             });
 
@@ -123,6 +134,7 @@ fn main() {
             commands_presentation::open_presentation_window,
             commands_presentation::close_presentation_window,
             commands_presentation::set_presentation_background,
+            commands_presentation::open_admin_window,
             // Timer commands
             commands_timer::load_service_to_timer,
             commands_timer::start_next_activity,
@@ -143,7 +155,11 @@ fn main() {
             commands_bible::initialize_bible_books,
             commands_bible::bulk_import_bible_verses,
             commands_bible::import_full_kjv_bible,
+            commands_bible::import_bible_version_file,
             commands_bible::get_bible_verse_count,
+            commands_bible::get_bible_versions,
+            commands_bible::get_active_bible_version,
+            commands_bible::set_active_bible_version,
             // Auth commands
             commands_auth::login_admin,
             // Member commands
@@ -208,12 +224,16 @@ fn main() {
             commands_files::open_folder_dialog,
             commands_files::scan_folder_for_media,
             commands_files::read_image_base64,
+            commands_files::prepare_media_for_playback,
+            commands_files::read_file_bytes,
             // Check-In commands
             commands_checkin::get_active_checkins,
             commands_checkin::check_in_child,
             commands_checkin::check_out_child,
             commands_checkin::create_relationship,
             commands_checkin::get_member_relationships,
+            // Terminal logging
+            commands::log_to_terminal,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

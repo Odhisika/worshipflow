@@ -1,50 +1,21 @@
 {
-  "package": {
-    "productName": "WorshipFlow Pro",
-    "version": "0.1.0"
-  },
+  "productName": "WorshipFlow Pro",
+  "version": "0.1.0",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
-    "devPath": "http://localhost:5173",
-    "distDir": "../dist"
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
   },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      },
-      "window": {
-        "all": true
-      },
-      "fs": {
-        "all": false,
-        "readFile": true,
-        "writeFile": true,
-        "readDir": true,
-        "exists": true,
-        "scope": ["**"]
-      },
-      "dialog": {
-        "all": true
-      },
-      "protocol": {
-        "asset": true,
-        "assetScope": [
-          "**"
-        ]
-      }
-    },
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "com.worshipflow.pro",
-      "resources": [
-        "resources/kjv_bible.json"
-      ]
-    },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "identifier": "com.worshipflow.pro",
+    "resources": [
+      "resources/kjv_bible.json"
+    ]
+  },
+  "app": {
     "security": {
       "csp": null
     },

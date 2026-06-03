@@ -4,7 +4,7 @@ use crate::repositories::ActivityRepository;
 use crate::timer::TIMER;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimerInfo {
@@ -31,7 +31,7 @@ pub async fn load_service_to_timer(
     let info = get_timer_info(&timer);
     drop(timer);
     
-    app.emit_all("timer-loaded", &info).ok();
+    app.emit("timer-loaded", &info).ok();
     
     Ok(info)
 }
@@ -44,7 +44,7 @@ pub async fn start_next_activity(app: tauri::AppHandle) -> AppResult<TimerInfo> 
     let info = get_timer_info(&timer);
     drop(timer);
     
-    app.emit_all("timer-started", &info).ok();
+    app.emit("timer-started", &info).ok();
     
     Ok(info)
 }
@@ -66,7 +66,7 @@ pub async fn start_current_timer_activity(app: tauri::AppHandle) -> AppResult<Ti
     let info = get_timer_info(&timer);
     drop(timer);
     
-    app.emit_all("timer-started", &info).ok();
+    app.emit("timer-started", &info).ok();
     
     Ok(info)
 }
@@ -79,7 +79,7 @@ pub async fn pause_timer(app: tauri::AppHandle) -> AppResult<TimerInfo> {
     let info = get_timer_info(&timer);
     drop(timer);
     
-    app.emit_all("timer-paused", &info).ok();
+    app.emit("timer-paused", &info).ok();
     
     Ok(info)
 }
@@ -92,7 +92,7 @@ pub async fn resume_timer(app: tauri::AppHandle) -> AppResult<TimerInfo> {
     let info = get_timer_info(&timer);
     drop(timer);
     
-    app.emit_all("timer-resumed", &info).ok();
+    app.emit("timer-resumed", &info).ok();
     
     Ok(info)
 }
@@ -108,7 +108,7 @@ pub async fn add_timer_time(
     let info = get_timer_info(&timer);
     drop(timer);
     
-    app.emit_all("timer-updated", &info).ok();
+    app.emit("timer-updated", &info).ok();
     
     Ok(info)
 }
@@ -121,7 +121,7 @@ pub async fn stop_timer(app: tauri::AppHandle) -> AppResult<TimerInfo> {
     let info = get_timer_info(&timer);
     drop(timer);
     
-    app.emit_all("timer-stopped", &info).ok();
+    app.emit("timer-stopped", &info).ok();
     
     Ok(info)
 }

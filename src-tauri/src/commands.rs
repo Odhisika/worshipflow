@@ -184,3 +184,13 @@ pub async fn import_song_from_content(
     let conn = state.db.lock().unwrap();
     SongRepository::create(&conn, request)
 }
+
+// ── Logging helper ──────────────────────────────────────────────────────
+#[tauri::command]
+pub fn log_to_terminal(level: String, message: String) {
+    match level.to_lowercase().as_str() {
+        "error" => eprintln!("[MEDIA] ERROR: {}", message),
+        "warn" => println!("[MEDIA] WARN:  {}", message),
+        _ => println!("[MEDIA] INFO:  {}", message),
+    }
+}

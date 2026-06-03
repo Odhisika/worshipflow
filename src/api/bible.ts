@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 
 export interface BibleVerse {
   id: number;
@@ -23,18 +23,20 @@ export const bibleApi = {
     book: string,
     chapter: number,
     startVerse: number,
-    endVerse?: number
+    endVerse?: number,
+    version?: string | null
   ): Promise<BibleVerse[]> =>
-    invoke('get_bible_verses', { book, chapter, startVerse, endVerse }),
+    invoke('get_bible_verses', { book, chapter, startVerse, endVerse, version }),
 
   getChapterVerses: (
     book: string,
-    chapter: number
+    chapter: number,
+    version?: string | null
   ): Promise<BibleVerse[]> =>
-    invoke('get_chapter_verses', { book, chapter }),
+    invoke('get_chapter_verses', { book, chapter, version }),
 
-  search: (query: string): Promise<BibleVerse[]> =>
-    invoke('search_bible', { query }),
+  search: (query: string, version?: string | null): Promise<BibleVerse[]> =>
+    invoke('search_bible', { query, version }),
 
   addVerse: (
     book: string,
@@ -54,6 +56,18 @@ export const bibleApi = {
   importFullKjv: (): Promise<number> =>
     invoke('import_full_kjv_bible'),
 
+  importVersionFile: (filename: string): Promise<number> =>
+    invoke('import_bible_version_file', { filename }),
+
   getVerseCount: (): Promise<number> =>
     invoke('get_bible_verse_count'),
+
+  getVersions: (): Promise<string[]> =>
+    invoke('get_bible_versions'),
+
+  getActiveVersion: (): Promise<string | null> =>
+    invoke('get_active_bible_version'),
+
+  setActiveVersion: (version: string): Promise<void> =>
+    invoke('set_active_bible_version', { version }),
 };

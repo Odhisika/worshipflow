@@ -1,0 +1,15 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for WorshipFlow Pro",
+  "windows": ["*"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "core:asset:default",
+      "allow": [{ "path": "**" }]
+    },
+    "event:default",
+    "dialog:default",
+    "dialog:allow-open"
+  ]
+}

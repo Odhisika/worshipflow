@@ -131,78 +131,41 @@ impl BibleRepository {
         chapter: i32,
         start_verse: i32,
         end_verse: Option<i32>,
+        version: Option<&str>,
     ) -> AppResult<Vec<BibleVerse>> {
-        // When end_verse is None, load ALL verses in the chapter (use 9999 as a safe upper bound)
         let end = end_verse.unwrap_or(9999);
-        
-        let mut stmt = conn.prepare(
-            "SELECT id, book, chapter, verse, text, version 
-             FROM bible_verses 
-             WHERE book = ?1 AND chapter = ?2 AND verse >= ?3 AND verse <= ?4
-             ORDER BY verse ASC"
-        )?;
 
-        let verses = stmt.query_map(
-            rusqlite::params![book, chapter, start_verse, end],
-            |row| {
-                Ok(BibleVerse {
-                    id: row.get(0)?,
-                    book: row.get(1)?,
-                    chapter: row.get(2)?,
-                    verse: row.get(3)?,
-                    text: row.get(4)?,
-                    version: row.get(5)?,
-                })
-            }
-        )?
-        .collect::<Result<Vec<_>, _>>()?;
+        let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match version {
+            Some(v) => (
+                "SELECT id, book, chapter, verse, text, version 
+                 FROM bible_verses 
+                 WHERE book = ?1 AND chapter = ?2 AND verse >= ?3 AND verse <= ?4 AND version = ?5
+                 ORDER BY verse ASC".to_string(),
+                vec![
+                    Box::new(book.to_string()),
+                    Box::new(chapter),
+                    Box::new(start_verse),
+                    Box::new(end),
+                    Box::new(v.to_string()),
+                ],
+            ),
+            None => (
+                "SELECT id, book, chapter, verse, text, version 
+                 FROM bible_verses 
+                 WHERE book = ?1 AND chapter = ?2 AND verse >= ?3 AND verse <= ?4
+                 ORDER BY verse ASC".to_string(),
+                vec![
+                    Box::new(book.to_string()),
+                    Box::new(chapter),
+                    Box::new(start_verse),
+                    Box::new(end),
+                ],
+            ),
+        };
 
-        Ok(verses)
-    }
-
-    /// Returns every verse in a given chapter (no verse range needed)
-    pub fn get_chapter_verses(
-        conn: &Connection,
-        book: &str,
-        chapter: i32,
-    ) -> AppResult<Vec<BibleVerse>> {
-        let mut stmt = conn.prepare(
-            "SELECT id, book, chapter, verse, text, version 
-             FROM bible_verses 
-             WHERE book = ?1 AND chapter = ?2
-             ORDER BY verse ASC"
-        )?;
-
-        let verses = stmt.query_map(
-            rusqlite::params![book, chapter],
-            |row| {
-                Ok(BibleVerse {
-                    id: row.get(0)?,
-                    book: row.get(1)?,
-                    chapter: row.get(2)?,
-                    verse: row.get(3)?,
-                    text: row.get(4)?,
-                    version: row.get(5)?,
-                })
-            }
-        )?
-        .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(verses)
-    }
-
-    pub fn search_verses(conn: &Connection, query: &str) -> AppResult<Vec<BibleVerse>> {
-        let search_pattern = format!("%{}%", query);
-        
-        let mut stmt = conn.prepare(
-            "SELECT id, book, chapter, verse, text, version 
-             FROM bible_verses 
-             WHERE text LIKE ?1
-             ORDER BY book, chapter, verse
-             LIMIT 50"
-        )?;
-
-        let verses = stmt.query_map([&search_pattern], |row| {
+        let mut stmt = conn.prepare(&sql)?;
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+        let verses = stmt.query_map(params_refs.as_slice(), |row| {
             Ok(BibleVerse {
                 id: row.get(0)?,
                 book: row.get(1)?,
@@ -215,6 +178,120 @@ impl BibleRepository {
         .collect::<Result<Vec<_>, _>>()?;
 
         Ok(verses)
+    }
+
+    /// Returns every verse in a given chapter (no verse range needed)
+    pub fn get_chapter_verses(
+        conn: &Connection,
+        book: &str,
+        chapter: i32,
+        version: Option<&str>,
+    ) -> AppResult<Vec<BibleVerse>> {
+        let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match version {
+            Some(v) => (
+                "SELECT id, book, chapter, verse, text, version 
+                 FROM bible_verses 
+                 WHERE book = ?1 AND chapter = ?2 AND version = ?3
+                 ORDER BY verse ASC".to_string(),
+                vec![
+                    Box::new(book.to_string()),
+                    Box::new(chapter),
+                    Box::new(v.to_string()),
+                ],
+            ),
+            None => (
+                "SELECT id, book, chapter, verse, text, version 
+                 FROM bible_verses 
+                 WHERE book = ?1 AND chapter = ?2
+                 ORDER BY verse ASC".to_string(),
+                vec![
+                    Box::new(book.to_string()),
+                    Box::new(chapter),
+                ],
+            ),
+        };
+
+        let mut stmt = conn.prepare(&sql)?;
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+        let verses = stmt.query_map(params_refs.as_slice(), |row| {
+            Ok(BibleVerse {
+                id: row.get(0)?,
+                book: row.get(1)?,
+                chapter: row.get(2)?,
+                verse: row.get(3)?,
+                text: row.get(4)?,
+                version: row.get(5)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(verses)
+    }
+
+    pub fn search_verses(
+        conn: &Connection,
+        query: &str,
+        version: Option<&str>,
+    ) -> AppResult<Vec<BibleVerse>> {
+        let search_pattern = format!("%{}%", query);
+
+        let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match version {
+            Some(v) => (
+                "SELECT id, book, chapter, verse, text, version 
+                 FROM bible_verses 
+                 WHERE text LIKE ?1 AND version = ?2
+                 ORDER BY book, chapter, verse
+                 LIMIT 50".to_string(),
+                vec![
+                    Box::new(search_pattern),
+                    Box::new(v.to_string()),
+                ],
+            ),
+            None => (
+                "SELECT id, book, chapter, verse, text, version 
+                 FROM bible_verses 
+                 WHERE text LIKE ?1
+                 ORDER BY book, chapter, verse
+                 LIMIT 50".to_string(),
+                vec![
+                    Box::new(search_pattern),
+                ],
+            ),
+        };
+
+        let mut stmt = conn.prepare(&sql)?;
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+        let verses = stmt.query_map(params_refs.as_slice(), |row| {
+            Ok(BibleVerse {
+                id: row.get(0)?,
+                book: row.get(1)?,
+                chapter: row.get(2)?,
+                verse: row.get(3)?,
+                text: row.get(4)?,
+                version: row.get(5)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(verses)
+    }
+
+    pub fn get_available_versions(conn: &Connection) -> AppResult<Vec<String>> {
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT version FROM bible_verses ORDER BY version"
+        )?;
+        let versions = stmt.query_map([], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<String>>>()?;
+        Ok(versions)
+    }
+
+    pub fn get_verse_count_for_version(conn: &Connection, version: &str) -> AppResult<i64> {
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM bible_verses WHERE version = ?1",
+            rusqlite::params![version],
+            |row| row.get(0),
+        )?;
+        Ok(count)
     }
 
     pub fn get_books(conn: &Connection) -> AppResult<Vec<(String, String, i32)>> {

@@ -4,7 +4,7 @@ import { songApi, Song, Slide, serviceApi, Service, activityApi } from '../api';
 import { bibleApi } from '../api/bible';
 import { timerApi, TimerInfo } from '../api/timer';
 import { listen } from '@tauri-apps/api/event';
-import { WebviewWindow } from '@tauri-apps/api/window';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { MdMonitor, MdPlayArrow, MdPause, MdStop, MdSkipNext, MdSkipPrevious, MdVisibility, MdVisibilityOff, MdDelete, MdAdd, MdSearch, MdMic, MdTimer, MdImage, MdEdit, MdClose, MdPalette } from 'react-icons/md';
 import { FiRefreshCw } from 'react-icons/fi';
 import BackgroundPicker, { BUILTIN_THEMES } from './BackgroundPicker';
@@ -414,7 +414,7 @@ const PresentationControl: React.FC = () => {
 
   const openOutputWindow = async () => {
     try {
-      const { invoke } = await import('@tauri-apps/api/tauri');
+      const { invoke } = await import('@tauri-apps/api/core');
       await invoke('open_presentation_window');
       setOutputWindow(true as any); // mark as open
       console.log('[Presentation] Output window opened via backend command.');
@@ -426,6 +426,8 @@ const PresentationControl: React.FC = () => {
 
   const handleStart = async () => {
     try {
+      // Start first — this sets is_live=true in the backend BEFORE the window opens,
+      // so the output window's loadState() call will see is_live=true.
       const info = await presentationApi.startPresentation();
       setPresentationInfo(info);
 
@@ -434,6 +436,7 @@ const PresentationControl: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to start presentation:', error);
+      alert(`Failed to start presentation: ${error}`);
     }
   };
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { emit } from '@tauri-apps/api/event';
 import { churchSettingsApi, ChurchSettings, PresentationStyle } from '../api/churchSettings';
 import { mediaApi } from '../api/media';
 import { MdCameraAlt, MdClose, MdPalette, MdSubtitles, MdTextFields, MdCheckCircle } from 'react-icons/md';
@@ -26,20 +27,10 @@ const ChurchBrandingModal: React.FC<Props> = ({ onClose }) => {
     }
   }, []);
 
-  // Trigger cross-window update manually on save
   const handleSave = () => {
     churchSettingsApi.save(settings);
-    
-    // Also broadcast to Tauri so output window updates immediately if needed
-    // (We'll handle this purely via LocalStorage polling or custom event propagation across windows)
-    // For now, Tauri v1 emit_all is best, let's just trigger a custom event
-    import('@tauri-apps/api/tauri').then(() => {
-       // Since the output window doesn't share local_storage exactly (they are same origin but we might need event)
-       import('@tauri-apps/api/event').then(({ emit }) => {
-           emit('settings-changed', settings);
-       });
-    });
-
+    // Notify the output window immediately so it doesn't have to wait for the next poll
+    emit('settings-changed', settings).catch(() => {});
     onClose();
   };
 

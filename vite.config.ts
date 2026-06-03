@@ -19,6 +19,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         output: resolve(__dirname, 'output.html'),
         leader: resolve(__dirname, 'leader.html'),
+        admin: resolve(__dirname, 'admin.html'),
       },
     },
   },

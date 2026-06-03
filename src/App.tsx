@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { MdDashboard, MdMonitor, MdLibraryMusic, MdBook, MdTimer, MdEvent, MdCheckCircle, MdImage } from 'react-icons/md';
+import { MdDashboard, MdMonitor, MdLibraryMusic, MdBook, MdEvent, MdCheckCircle, MdImage } from 'react-icons/md';
 import './App.css';
 import SongLibrary from './components/SongLibrary';
 import ServiceManager from './components/ServiceManager';
@@ -87,16 +88,6 @@ function App() {
             </li>
             <li>
               <Link
-                to="/timer"
-                className={activeView === 'timer' ? 'active' : ''}
-                onClick={() => setActiveView('timer')}
-              >
-                <span className="icon"><MdTimer /></span>
-                Timer
-              </Link>
-            </li>
-            <li>
-              <Link
                 to="/services"
                 className={activeView === 'services' ? 'active' : ''}
                 onClick={() => setActiveView('services')}
@@ -118,9 +109,13 @@ function App() {
           </ul>
 
           <div className="sidebar-footer">
-            <Link to="/admin/login" className="footer-status admin-btn" onClick={() => setActiveView('admin')}>
+            <button
+              className="footer-status admin-btn"
+              onClick={() => invoke('open_admin_window').catch(console.error)}
+              title="Open Church Management in a separate window"
+            >
               <MdCheckCircle className="status-icon" color="#10b981" /> Manage Your Church
-            </Link>
+            </button>
           </div>
         </nav>
 

@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 
 export type MemberRole = 'member' | 'youth_leader' | 'mens_leader' | 'deacon' | 'pastor';
 export type MemberStatus = 'active' | 'suspended';

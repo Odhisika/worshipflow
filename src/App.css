@@ -159,6 +159,9 @@ body {
   transition: all 0.2s;
   justify-content: center;
   width: 100%;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
 }
 
 .admin-btn:hover {
@@ -175,7 +178,10 @@ body {
 .main-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   background-color: var(--bg-primary);
+  /* Always show scrollbar track so it doesn't cause layout shifts */
+  scrollbar-gutter: stable;
 }
 
 /* Common Page Styles */

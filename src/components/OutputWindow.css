@@ -109,21 +109,21 @@ body {
 }
 
 .waiting-message .logo {
-  font-size: 4rem;
+  font-size: clamp(2.5rem, 6vw, 7rem);
   font-weight: 700;
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.25vh;
   letter-spacing: -1px;
 }
 
 .waiting-message p,
 .standby-church-name {
-  font-size: 1.8rem;
+  font-size: clamp(1.2rem, 2.5vw, 3rem);
   color: rgba(255, 255, 255, 0.7);
-  margin-top: 1rem;
+  margin-top: 1vh;
   font-weight: 500;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -140,22 +140,22 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 5rem 7rem;
+  padding: 5vh 7vw;
   text-align: center;
   animation: fadeIn 0.4s ease-out;
 }
 
 .output-title {
-  font-size: 2.8rem;
+  font-size: clamp(1.8rem, 3.5vw, 5rem);
   font-weight: 700;
-  margin-bottom: 2.5rem;
+  margin-bottom: 2.5vh;
   color: #3b82f6;
   letter-spacing: 0.5px;
   text-shadow: 0 0 40px rgba(59, 130, 246, 0.4);
 }
 
 .output-content {
-  font-size: 3.5rem;
+  font-size: clamp(2rem, 4.5vw, 6rem);
   line-height: 1.75;
   white-space: pre-line;
   max-width: 90%;
@@ -165,9 +165,19 @@ body {
   color: #f0f4ff;
 }
 
-/* Hide scrollbar for clean projection */
+/* Subtle scrollbar for long content — thin so it doesn't distract on projector */
 .output-content::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+}
+.output-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.output-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+}
+.output-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
 }
 
 /* ========================
@@ -175,31 +185,31 @@ body {
    ======================== */
 
 .slide-song .output-title {
-  font-size: 2.5rem;
+  font-size: clamp(1.6rem, 3vw, 4.5rem);
   color: #60a5fa;
 }
 
 .slide-song .output-content {
-  font-size: 3.2rem;
+  font-size: clamp(1.8rem, 4vw, 5.5rem);
   line-height: 1.7;
   font-weight: 500;
 }
 
 .slide-bible .output-title {
-  font-size: 2.5rem;
+  font-size: clamp(1.6rem, 3vw, 4.5rem);
   color: #a78bfa;
   text-shadow: 0 0 40px rgba(139, 92, 246, 0.4);
 }
 
 .slide-bible .output-content {
-  font-size: 2.8rem;
+  font-size: clamp(1.6rem, 3.5vw, 5rem);
   line-height: 1.8;
   font-style: italic;
   color: #e8eeff;
 }
 
 .slide-text .output-content {
-  font-size: 3.2rem;
+  font-size: clamp(1.8rem, 4vw, 5.5rem);
 }
 
 .slide-announcement .output-title {
@@ -208,7 +218,7 @@ body {
 }
 
 .slide-announcement .output-content {
-  font-size: 3.5rem;
+  font-size: clamp(2rem, 4.5vw, 6rem);
   font-weight: 700;
   color: #10b981;
 }

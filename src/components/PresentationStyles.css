@@ -1,4 +1,14 @@
-/* Add to the bottom or replace relevant sections in existing output window CSS */
+/* ========================
+   CSS VARIABLES
+   (redefined here so the output window doesn't need to import App.css)
+   ======================== */
+:root {
+  --primary-blue: #3b82f6;
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  --accent-green: #10b981;
+  --bg-dark: #0f172a;
+}
 
 /* Standby Screen Logo */
 .standby-logo {
@@ -22,7 +32,7 @@
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* 1. Classic Full (Default) */
+/* ---- 1. Classic Full (Default) ---- */
 .style-classic .slide-display {
   align-items: center;
   justify-content: center;
@@ -33,37 +43,37 @@
   justify-content: center;
 }
 
-/* 2. Lower Third (News Broadcast Style) */
+/* ---- 2. Lower Third (News Broadcast Style) ---- */
 .style-lower-third .slide-display {
   align-items: flex-start;
   justify-content: flex-end;
-  padding: 0 4rem 12vh 4rem; /* Sit above the ticker */
+  padding: 0 4vw 12vh 4vw;
   text-align: left;
 }
 .style-lower-third .content-wrapper {
   align-items: flex-start;
   justify-content: flex-end;
   background: linear-gradient(to right, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.7), transparent);
-  padding: 2.5rem 4rem;
-  border-left: 6px solid var(--primary-blue);
+  padding: 2.5vh 4vw;
+  border-left: 0.4vw solid var(--primary-blue);
   border-radius: 8px;
   max-width: 80%;
   box-shadow: 0 20px 40px rgba(0,0,0,0.5);
   backdrop-filter: blur(8px);
 }
 .style-lower-third .output-title {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
+  font-size: clamp(1.2rem, 2.2vw, 3rem);
+  margin-bottom: 0.5vh;
   text-transform: uppercase;
   letter-spacing: 2px;
 }
 .style-lower-third .output-content {
-  font-size: 2.8rem;
-  max-height: 40vh; /* Don't cover whole screen */
+  font-size: clamp(1.5rem, 3vw, 4.5rem);
+  max-height: 40vh;
   text-align: left;
 }
 
-/* 3. Cinematic (Wide, elegant, centered small-caps style) */
+/* ---- 3. Cinematic ---- */
 .style-cinematic .slide-display {
   align-items: center;
   justify-content: center;
@@ -75,17 +85,17 @@
   text-align: center;
 }
 .style-cinematic .output-title {
-  font-size: 1.8rem;
+  font-size: clamp(1rem, 1.8vw, 2.8rem);
   letter-spacing: 6px;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 3rem;
+  margin-bottom: 3vh;
   font-weight: 300;
 }
 .style-cinematic .output-content {
-  font-size: 3.2rem;
+  font-size: clamp(1.8rem, 3.2vw, 5rem);
   line-height: 2;
-  font-family: 'Georgia', serif; /* Cinematic serif */
+  font-family: 'Georgia', serif;
   font-style: italic;
   letter-spacing: 1px;
 }
@@ -100,8 +110,8 @@
   left: 0;
   width: 100vw;
   height: 6vh;
-  min-height: 50px;
-  background: rgba(15, 23, 42, 0.9);
+  min-height: 48px;
+  background: rgba(15, 23, 42, 0.92);
   display: flex;
   align-items: center;
   z-index: 100;
@@ -120,8 +130,9 @@
   z-index: 101;
   text-transform: uppercase;
   letter-spacing: 2px;
-  font-size: 1.2rem;
+  font-size: clamp(0.8rem, 1.2vw, 1.4rem);
   box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+  white-space: nowrap;
 }
 
 .ticker-text-container {
@@ -136,7 +147,7 @@
 .ticker-text {
   position: absolute;
   white-space: nowrap;
-  font-size: 1.6rem;
+  font-size: clamp(1rem, 1.6vw, 2rem);
   font-weight: 500;
   color: #f1f5f9;
   padding-left: 100%;
@@ -144,12 +155,12 @@
 }
 
 @keyframes tickerScroll {
-  0% { transform: translateX(0); }
+  0%   { transform: translateX(0); }
   100% { transform: translateX(-100%); }
 }
 
-/* Adjust slide display padding if ticker is active */
+/* Extra bottom padding so content doesn't hide under the ticker */
 .style-classic .slide-display,
 .style-cinematic .slide-display {
-  padding-bottom: 8vh; /* Make room for ticker */
+  padding-bottom: 8vh;
 }

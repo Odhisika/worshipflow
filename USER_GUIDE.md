@@ -333,3 +333,9 @@ ESC      → Stop presentation
 
 *For technical documentation, see DEVELOPMENT.md*
 *For feature requests, see project roadmap*
+
+
+
+
+ Email: admin@church.com
+- Password: admin123
