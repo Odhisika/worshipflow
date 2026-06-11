@@ -6,11 +6,13 @@ import {
 } from 'react-icons/md';
 import { groupApi, Group, GroupMember } from '../../api/groups';
 import { memberApi, Member } from '../../api/members';
+import { useDataRefresh } from '../../context/DataRefreshContext';
 import './AdminViews.css';
 
 const AdminGroups: React.FC = () => {
     const [groups, setGroups] = useState<Group[]>([]);
     const [loading, setLoading] = useState(true);
+    const { refreshSignal, triggerRefresh } = useDataRefresh();
     const [activeTab, setActiveTab] = useState<'list' | 'members'>('list');
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
     const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
@@ -52,7 +54,7 @@ const AdminGroups: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [refreshSignal]);
 
     const fetchGroupMembers = async (groupId: string) => {
         try {
@@ -69,7 +71,7 @@ const AdminGroups: React.FC = () => {
             await groupApi.createGroup(groupFormData);
             setShowGroupModal(false);
             resetGroupForm();
-            fetchData();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to create group:', error);
         }
@@ -82,7 +84,7 @@ const AdminGroups: React.FC = () => {
             await groupApi.updateGroup(selectedGroup.id, groupFormData);
             setShowGroupModal(false);
             resetGroupForm();
-            fetchData();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to update group:', error);
         }
@@ -96,7 +98,7 @@ const AdminGroups: React.FC = () => {
                     setSelectedGroup(null);
                     setActiveTab('list');
                 }
-                fetchData();
+                triggerRefresh();
             } catch (error) {
                 console.error('Failed to delete group:', error);
             }
@@ -114,7 +116,7 @@ const AdminGroups: React.FC = () => {
             });
             setShowAddMemberModal(false);
             setMemberFormData({ member_id: '', role: 'Member' });
-            fetchGroupMembers(selectedGroup.id);
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to add member to group:', error);
         }

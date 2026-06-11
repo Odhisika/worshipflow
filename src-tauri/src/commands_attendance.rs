@@ -1,5 +1,5 @@
 use crate::error::AppResult;
-use crate::models::{AttendanceRecord, MarkAttendanceRequest, ServiceAttendanceSummary};
+use crate::models::{AttendanceRecord, MarkAttendanceRequest, MemberAttendanceRecord, ServiceAttendanceSummary};
 use crate::repositories::AttendanceRepository;
 use crate::AppState;
 use tauri::State;
@@ -20,6 +20,15 @@ pub async fn get_service_attendance(
 ) -> AppResult<Vec<AttendanceRecord>> {
     let conn = state.db.lock().unwrap();
     AttendanceRepository::get_service_attendance(&conn, &service_id)
+}
+
+#[tauri::command]
+pub async fn get_all_member_attendance_for_service(
+    state: State<'_, AppState>,
+    service_id: String,
+) -> AppResult<Vec<MemberAttendanceRecord>> {
+    let conn = state.db.lock().unwrap();
+    AttendanceRepository::get_all_member_attendance_for_service(&conn, &service_id)
 }
 
 #[tauri::command]

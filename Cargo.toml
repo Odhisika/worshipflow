@@ -31,6 +31,9 @@ thiserror = "1.0"
 lazy_static = "1.4"
 rand = "0.8"
 base64 = "0.22.1"
+quick-xml = { version = "0.36", features = ["encoding"] }
+encoding_rs = "0.8"
+
 
 [profile.release]
 panic = "abort"

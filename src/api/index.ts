@@ -56,7 +56,7 @@ export interface Activity {
 
 export interface Slide {
   id: string;
-  slide_type: 'text' | 'song' | 'bible' | 'image' | 'video' | 'announcement' | 'timer';
+  slide_type: 'text' | 'song' | 'bible' | 'image' | 'video' | 'audio' | 'announcement' | 'timer' | 'capture';
   title?: string;
   content: string;
   media_path?: string;

@@ -15,6 +15,11 @@ export interface BibleBook {
   chapters: number;
 }
 
+export interface VersionInfo {
+  version: string;
+  count: number;
+}
+
 export const bibleApi = {
   getBooks: (): Promise<[string, string, number][]> =>
     invoke('get_bible_books'),
@@ -70,4 +75,16 @@ export const bibleApi = {
 
   setActiveVersion: (version: string): Promise<void> =>
     invoke('set_active_bible_version', { version }),
+
+  importBibleFile: (filePath: string): Promise<[string, number]> =>
+    invoke('import_bible_from_user_file', { path: filePath }),
+
+  openBibleFileDialog: (): Promise<string | null> =>
+    invoke('open_bible_file_dialog'),
+
+  deleteBibleVersion: (version: string): Promise<number> =>
+    invoke('delete_bible_version', { version }),
+
+  getBibleVersionInfo: (): Promise<[string, number][]> =>
+    invoke('get_bible_version_info'),
 };

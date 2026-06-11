@@ -11,6 +11,7 @@ mod commands_presentation;
 mod timer;
 mod commands_timer;
 mod commands_bible;
+mod bible_importer;
 mod commands_auth;
 mod commands_members;
 mod commands_finance;
@@ -24,6 +25,8 @@ mod commands_reports;
 mod commands_settings;
 mod commands_files;
 mod commands_checkin;
+mod capture;
+mod commands_capture;
 
 use rusqlite::Connection;
 use std::sync::Mutex;
@@ -94,6 +97,13 @@ fn main() {
             log::info!("WorshipFlow Pro initialized successfully");
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                if let Some(output) = window.get_webview_window("output") {
+                    let _ = output.close();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             // Song commands
             commands::create_song,
@@ -129,6 +139,7 @@ fn main() {
             commands_presentation::stop_presentation,
             commands_presentation::clear_presentation,
             commands_presentation::get_presentation_state,
+            commands_presentation::get_presentation_slides,
             commands_presentation::remove_slide_from_presentation,
             commands_presentation::reorder_presentation_slides,
             commands_presentation::open_presentation_window,
@@ -160,8 +171,14 @@ fn main() {
             commands_bible::get_bible_versions,
             commands_bible::get_active_bible_version,
             commands_bible::set_active_bible_version,
+            commands_bible::import_bible_from_user_file,
+            commands_bible::delete_bible_version,
+            commands_bible::get_bible_version_info,
+            commands_bible::open_bible_file_dialog,
             // Auth commands
             commands_auth::login_admin,
+            commands_auth::change_admin_password,
+            commands_auth::change_admin_email,
             // Member commands
             commands_members::get_members,
             commands_members::get_member_by_id,
@@ -178,9 +195,18 @@ fn main() {
             commands_finance::delete_giving_type,
             commands_finance::get_contributions,
             commands_finance::add_contribution,
+            commands_finance::update_contribution,
             commands_finance::delete_contribution,
+            commands_finance::get_pledges,
+            commands_finance::create_pledge,
+            commands_finance::update_pledge,
+            commands_finance::add_pledge_payment,
+            commands_finance::delete_pledge,
             commands_finance::get_dashboard_stats,
             commands_finance::get_member_tithe_summary,
+            commands_finance::get_monthly_giving_trends,
+            commands_finance::get_year_comparison,
+            commands_finance::get_member_statement,
             // Group commands
             commands_groups::get_groups,
             commands_groups::get_group_by_id,
@@ -193,6 +219,7 @@ fn main() {
             // Attendance commands
             commands_attendance::mark_attendance,
             commands_attendance::get_service_attendance,
+            commands_attendance::get_all_member_attendance_for_service,
             commands_attendance::get_attendance_summary,
             // Event commands
             commands_events::create_event,
@@ -226,6 +253,7 @@ fn main() {
             commands_files::read_image_base64,
             commands_files::prepare_media_for_playback,
             commands_files::read_file_bytes,
+            commands_files::save_file,
             // Check-In commands
             commands_checkin::get_active_checkins,
             commands_checkin::check_in_child,
@@ -234,6 +262,18 @@ fn main() {
             commands_checkin::get_member_relationships,
             // Terminal logging
             commands::log_to_terminal,
+            // Window Capture commands
+            commands_capture::list_capturable_windows,
+            commands_capture::start_window_capture,
+            commands_capture::stop_window_capture,
+            commands_capture::get_capture_state,
+            commands_capture::present_window_capture_slide,
+            // Bible Web Presentation
+            commands_capture::present_bible_web,
+            // Media Presentation commands
+            commands_capture::present_image_slide,
+            commands_capture::present_video_slide,
+            commands_capture::present_audio_slide,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

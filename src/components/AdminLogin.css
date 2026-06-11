@@ -122,6 +122,15 @@
     position: relative;
 }
 
+.login-logo-img {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    object-fit: contain;
+    border-radius: 1rem;
+    display: block;
+}
+
 .logo-icon::after {
     content: '';
     position: absolute;

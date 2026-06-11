@@ -1,30 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { presentationApi, PresentationInfo } from '../api/presentation';
-import { songApi, Song, Slide, serviceApi, Service, activityApi } from '../api';
-import { bibleApi } from '../api/bible';
-import { timerApi, TimerInfo } from '../api/timer';
+import { songApi, Song, Slide, serviceApi, Service, activityApi, Activity } from '../api';
+import { bibleApi, BibleVerse } from '../api/bible';
 import { listen } from '@tauri-apps/api/event';
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { MdMonitor, MdPlayArrow, MdPause, MdStop, MdSkipNext, MdSkipPrevious, MdVisibility, MdVisibilityOff, MdDelete, MdAdd, MdSearch, MdMic, MdTimer, MdImage, MdEdit, MdClose, MdPalette } from 'react-icons/md';
+import { 
+  MdMonitor, MdPlayArrow, MdStop, MdSkipNext, 
+  MdSkipPrevious, MdVisibilityOff, MdDelete, 
+  MdAdd, MdSearch, MdEdit, MdClose, 
+  MdPalette, MdBook, MdLibraryMusic, MdImage, MdFolderOpen,
+  MdEvent, MdSlideshow, MdTv,
+  MdMovie, MdMusicNote, MdPublic, MdWallpaper, MdCreate, MdLandscape
+} from 'react-icons/md';
 import { FiRefreshCw } from 'react-icons/fi';
-import BackgroundPicker, { BUILTIN_THEMES } from './BackgroundPicker';
 import ChurchBrandingModal from './ChurchBrandingModal';
+import { churchSettingsApi, ChurchSettings } from '../api/churchSettings';
 import { mediaApi } from '../api/media';
+import BackgroundPicker from './BackgroundPicker';
+import RichTextEditor from './RichTextEditor';
 import './PresentationControl.css';
-
-type SearchResult = {
-  type: 'song' | 'verse' | 'chapter' | 'activity';
-  id: string;
-  title: string;
-  data: any;
-};
-
-type ChapterSlide = {
-  book: string;
-  chapter: number;
-  verse: number;
-  text: string;
-};
 
 type SavedTextSlide = {
   id: string;
@@ -36,78 +29,181 @@ type SavedTextSlide = {
 const SAVED_SLIDES_KEY = 'worshipflow_saved_text_slides';
 
 const PresentationControl: React.FC = () => {
-  const [presentationInfo, setPresentationInfo] = useState<PresentationInfo | null>(null);
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [bibleBooks, setBibleBooks] = useState<[string, string, number][]>([]);
+  // Service & Schedule states
   const [services, setServices] = useState<Service[]>([]);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
   
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [selectedContentResult, setSelectedContentResult] = useState<string>('');
-
-  // Chapter slides panel (populated when a verse search result is loaded)
-  const [chapterSlides, setChapterSlides] = useState<ChapterSlide[]>([]);
-  const [chapterSlideLabel, setChapterSlideLabel] = useState<string>('');
-  const [highlightedVerseNum, setHighlightedVerseNum] = useState<number | null>(null);
-  const clickTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [outputWindow, setOutputWindow] = useState<WebviewWindow | null>(null);
+  // Active Presentation states
+  const [presentationInfo, setPresentationInfo] = useState<PresentationInfo | null>(null);
+  const [slidesList, setSlidesList] = useState<Slide[]>([]);
   const [loading, setLoading] = useState(false);
+  const [outputWindow, setOutputWindow] = useState<boolean>(false);
+  
+  // Library Explorer states
+  const [activeTab, setActiveTab] = useState<'songs' | 'bible' | 'media' | 'announcements' | 'capture'>('songs');
+  const [churchSettings, setChurchSettings] = useState<ChurchSettings>(churchSettingsApi.get());
+  
+  // Library - Songs states
+  const [songsList, setSongsList] = useState<Song[]>([]);
+  const [songSearchQuery, setSongSearchQuery] = useState('');
+  const [selectedLibrarySong, setSelectedLibrarySong] = useState<Song | null>(null);
+  
+  // Library - Bible states
+  const [bibleBooks, setBibleBooks] = useState<[string, string, number][]>([]);
+  const [selectedBibleBook, setSelectedBibleBook] = useState<string>('');
+  const [selectedBibleChapter, setSelectedBibleChapter] = useState<number>(1);
+  const [bibleVerses, setBibleVerses] = useState<BibleVerse[]>([]);
+  const [selectedBibleVerse, setSelectedBibleVerse] = useState<BibleVerse | null>(null);
+  const [selectedVerseNumber, setSelectedVerseNumber] = useState<number>(1);
+  const [bibleSearchQuery, setBibleSearchQuery] = useState('');
+  const [bibleSearchResults, setBibleSearchResults] = useState<BibleVerse[]>([]);
+  const [isBibleSearching, setIsBibleSearching] = useState(false);
+  const [activeBibleVersion, setActiveBibleVersion] = useState('KJV');
+  const [bibleVersions, setBibleVersions] = useState<string[]>([]);
+  
+  // Library - Media states
+  const [mediaFiles, setMediaFiles] = useState<Array<{ name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' }>>([]);
+  const [selectedMediaFile, setSelectedMediaFile] = useState<{ name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' } | null>(null);
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<'image' | 'video' | 'audio'>('image');
 
-  // Background picker state
-  const [showBgPicker, setShowBgPicker] = useState(false);
+  // Window Capture states
+  const [capturableWindows, setCapturableWindows] = useState<Array<{ id: string; title: string; app_name: string }>>([]);
+  const [captureState, setCaptureState] = useState<{ is_capturing: boolean; window_title: string; current_frame_path: string | null }>({ is_capturing: false, window_title: '', current_frame_path: null });
+  const [selectedWindowId, setSelectedWindowId] = useState<string>('');
+  const [selectedWindowTitle, setSelectedWindowTitle] = useState<string>('');
+  const [isListingWindows, setIsListingWindows] = useState(false);
+  const [bibleWebUrl, setBibleWebUrl] = useState('https://www.biblegateway.com');
+
+  // Background picker & Branding modal states
   const [currentBackground, setCurrentBackground] = useState<string | null>(null);
-
-  // Branding modal state
+  const [showBgPicker, setShowBgPicker] = useState<boolean>(false);
   const [showBrandingModal, setShowBrandingModal] = useState<boolean>(false);
 
-  // Custom text slide modal state
+  // Custom slide Modal states
   const [showTextModal, setShowTextModal] = useState(false);
   const [customTextTitle, setCustomTextTitle] = useState('');
   const [customTextContent, setCustomTextContent] = useState('');
   const [editingSavedSlideId, setEditingSavedSlideId] = useState<string | null>(null);
-  const [showAllSavedSlides, setShowAllSavedSlides] = useState(false);
-
-  // Saved text slides (persisted in localStorage)
   const [savedTextSlides, setSavedTextSlides] = useState<SavedTextSlide[]>(() => {
     try {
       const stored = localStorage.getItem(SAVED_SLIDES_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch { return []; }
   });
-  
-  // Timer State for active controls
-  const [timerInfo, setTimerInfo] = useState<TimerInfo | null>(null);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<SavedTextSlide | null>(null);
 
   useEffect(() => {
+    loadServices();
     loadSongs();
     loadBibleBooks();
-    loadServices();
+    loadBibleVersions();
     loadPresentationState();
+    loadSlidesList();
     setupKeyboardShortcuts();
     
-    const setupTimerListener = async () => {
-      const state = await timerApi.getState();
-      setTimerInfo(state);
-      
-      const unlisten = await listen('timer-updated', (event: any) => {
-         setTimerInfo(event.payload);
-      });
-      return unlisten;
-    };
+    // Subscribe to church settings changes
+    const unsubBranding = churchSettingsApi.subscribe(settings => {
+      setChurchSettings(settings);
+    });
     
-    let unlistenFn: any;
-    setupTimerListener().then(un => unlistenFn = un);
+    // Setup Presentation state event listeners from Tauri backend
+    const setupPresentationListeners = async () => {
+      const unlistenSlide = await listen<PresentationInfo>('slide-changed', (event) => {
+        setPresentationInfo(event.payload);
+        loadSlidesList();
+      });
+      
+      const unlistenBlank = await listen<PresentationInfo>('blank-toggled', (event) => {
+        setPresentationInfo(event.payload);
+      });
+      
+      const unlistenStarted = await listen<PresentationInfo>('presentation-started', (event) => {
+        setPresentationInfo(event.payload);
+        loadSlidesList();
+      });
+      
+      const unlistenStopped = await listen<PresentationInfo>('presentation-stopped', (event) => {
+        setPresentationInfo(event.payload);
+      });
+
+      return () => {
+        unlistenSlide();
+        unlistenBlank();
+        unlistenStarted();
+        unlistenStopped();
+      };
+    };
+
+    let presentationUnlisten: any;
+
+    setupPresentationListeners().then(un => presentationUnlisten = un);
     
     return () => {
-       if (unlistenFn) unlistenFn();
-    }
+      unsubBranding();
+      if (presentationUnlisten) presentationUnlisten();
+    };
   }, []);
+
+  // Update activities when a service is selected
+  useEffect(() => {
+    if (selectedService) {
+      loadActivities(selectedService.id);
+    } else {
+      setActivities([]);
+    }
+  }, [selectedService]);
+
+  // Keep local background state in sync with current slide background
+  useEffect(() => {
+    if (presentationInfo?.current_slide) {
+      const slideBg = presentationInfo.current_slide.background_path;
+      if (slideBg !== undefined) {
+        setCurrentBackground(slideBg);
+      }
+    }
+  }, [presentationInfo?.current_slide]);
+
+  // Load verses when bible book or chapter changes
+  useEffect(() => {
+    if (selectedBibleBook && selectedBibleChapter) {
+      loadBibleVerses(selectedBibleBook, selectedBibleChapter);
+    }
+  }, [selectedBibleBook, selectedBibleChapter, activeBibleVersion]);
+
+  // Sync verse number dropdown when selected verse changes
+  useEffect(() => {
+    if (selectedBibleVerse) {
+      setSelectedVerseNumber(selectedBibleVerse.verse);
+    }
+  }, [selectedBibleVerse]);
+
+  // Load functions
+  const loadServices = async () => {
+    try {
+      const data = await serviceApi.getAll();
+      setServices(data);
+      if (data.length > 0 && !selectedService) {
+        setSelectedService(data[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load services:', error);
+    }
+  };
+
+  const loadActivities = async (serviceId: string) => {
+    try {
+      const data = await activityApi.getByService(serviceId);
+      setActivities(data);
+    } catch (error) {
+      console.error('Failed to load service activities:', error);
+    }
+  };
 
   const loadSongs = async () => {
     try {
       const data = await songApi.getAll();
-      setSongs(data);
+      setSongsList(data);
     } catch (error) {
       console.error('Failed to load songs:', error);
     }
@@ -115,29 +211,37 @@ const PresentationControl: React.FC = () => {
 
   const loadBibleBooks = async () => {
     try {
+      await bibleApi.initializeBooks();
       const books = await bibleApi.getBooks();
       setBibleBooks(books);
+      if (books.length > 0 && !selectedBibleBook) {
+        setSelectedBibleBook(books[0][0]);
+      }
     } catch (error) {
       console.error('Failed to load bible books:', error);
     }
   };
-  
-  const loadServices = async () => {
+
+  const loadBibleVersions = async () => {
     try {
-      const data = await serviceApi.getAll();
-      const parsedServices = await Promise.all(
-         data.map(async (service) => {
-            try {
-               const acts = await activityApi.getByService(service.id);
-               return { ...service, activities: acts };
-            } catch (e) {
-               return { ...service, activities: [] };
-            }
-         })
-      );
-      setServices(parsedServices);
+      const versions = await bibleApi.getVersions();
+      setBibleVersions(versions);
+      const active = await bibleApi.getActiveVersion();
+      if (active) setActiveBibleVersion(active);
     } catch (error) {
-      console.error('Failed to load services:', error);
+      console.error('Failed to load bible versions:', error);
+    }
+  };
+
+  const loadBibleVerses = async (book: string, chapter: number) => {
+    try {
+      const verses = await bibleApi.getChapterVerses(book, chapter, activeBibleVersion);
+      setBibleVerses(verses);
+      if (verses.length > 0) {
+        setSelectedBibleVerse(verses[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load verses:', error);
     }
   };
 
@@ -150,153 +254,21 @@ const PresentationControl: React.FC = () => {
     }
   };
 
-  // Keep local background state in sync with the current slide's background
-  useEffect(() => {
-    if (presentationInfo?.current_slide) {
-      const slideBg = presentationInfo.current_slide.background_path;
-      if (slideBg !== undefined) {
-        setCurrentBackground(slideBg);
-      }
+  const loadSlidesList = async () => {
+    try {
+      const list = await presentationApi.getSlides();
+      setSlidesList(list || []);
+    } catch (error) {
+      console.error('Failed to load presentation slides list:', error);
     }
-  }, [presentationInfo?.current_slide]);
+  };
 
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults(songs.map(s => ({ type: 'song', id: s.id, title: s.title, data: s })));
-      return;
-    }
-
-    const query = searchQuery.trim().toLowerCase();
-    
-    // Create a simplified query to find books (e.g. "1john" instead of "1 john")
-    const searchStr = query.replace(/[^a-z0-9]/g, '');
-    let matchedBook = null;
-    let maxMatchLen = 0;
-    let actualBookName = '';
-
-    // Find the longest matching book name prefix
-    for (const [bookName] of bibleBooks) {
-      const simpleBookName = bookName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (searchStr.startsWith(simpleBookName) && simpleBookName.length > maxMatchLen) {
-        maxMatchLen = simpleBookName.length;
-        matchedBook = simpleBookName;
-        actualBookName = bookName;
-      }
-    }
-
-    let isBibleQuery = false;
-
-    if (matchedBook) {
-      isBibleQuery = true;
-      const restOfQuery = searchStr.substring(matchedBook.length);
-
-      if (restOfQuery.length > 0) {
-        // Try parsing chapter and verse. Allow optional "chapter" keyword.
-        // We look for numbers corresponding to chapter and optional verses
-        // We can just extract all digits now since letters are removed or "ch" could be still there
-        const match = query.substring(query.toLowerCase().indexOf(actualBookName.toLowerCase()) + actualBookName.length).match(/(?:chapter|ch|chap)?\s*(\d+)(?:\s*:\s*(\d+))?/i);
-        
-        if (match) {
-          const chapter = parseInt(match[1]);
-          const verse = match[2] ? parseInt(match[2]) : null;
-
-          if (verse) {
-            setSearchResults([{
-              type: 'verse',
-              id: `verse-${actualBookName}-${chapter}-${verse}`,
-              title: `${actualBookName} ${chapter}:${verse}`,
-              data: { book: actualBookName, chapter, verse }
-            }]);
-          } else {
-            setSearchResults([{
-              type: 'chapter',
-              id: `chapter-${actualBookName}-${chapter}`,
-              title: `${actualBookName} Chapter ${chapter}`,
-              data: { book: actualBookName, chapter }
-            }]);
-          }
-          return;
-        }
-      } else {
-        // Just matched a book name exactly.
-        setSearchResults([{
-           type: 'chapter',
-           id: `book-${actualBookName}`,
-           title: `${actualBookName} (Type a chapter number!)`,
-           data: { book: actualBookName, chapter: null }
-        }]);
-        return;
-      }
-    }
-
-    // Fall back to Song / Text Search / Activities
-    let results: SearchResult[] = [];
-
-    // 1. Song search
-    const filteredSongs = songs.filter(s =>
-      s.title.toLowerCase().includes(query) ||
-      s.lyrics.toLowerCase().includes(query)
-    );
-
-    // 2. Activity search 
-    // We check all services for activities matching the word
-    services.forEach(service => {
-       (service.activities || []).forEach(activity => {
-          if (activity.name.toLowerCase().includes(query)) {
-             results.push({
-                type: 'activity',
-                id: `activity-${service.id}-${activity.id}`,
-                title: `[Activity] ${activity.name} (${service.title})`,
-                data: { serviceId: service.id, activity }
-             });
-          }
-       });
-    });
-
-    results.push(...filteredSongs.map(s => ({
-      type: 'song' as 'song',
-      id: s.id,
-      title: s.title,
-      data: s
-    })));
-
-    setSearchResults(results);
-
-    // 2. Deep Bible Text Search (Triggered if query is > 3 chars and not processing a standard book ref)
-    if (!isBibleQuery && query.length > 3) {
-      // Create an async abort controller pattern implicitly via state updates overriding
-      bibleApi.search(query).then(verses => {
-         if (verses && verses.length > 0) {
-            // Add top 5 verse results
-            setSearchResults(prev => {
-               // Ensure we don't duplicate on rapid typing
-               const newResults = [...prev];
-               verses.slice(0, 5).forEach(v => {
-                  if (!newResults.find(r => r.id === `search-verse-${v.id}`)) {
-                     newResults.push({
-                         type: 'verse',
-                         id: `search-verse-${v.id}`,
-                         title: `${v.book} ${v.chapter}:${v.verse} - "${v.text.substring(0, 30)}..."`,
-                         data: v
-                     });
-                  }
-               });
-               return newResults;
-            });
-         }
-      }).catch(err => {
-         console.warn("Bible text search failed:", err);
-      });
-    }
-
-  }, [searchQuery, songs, bibleBooks]);
-
+  // Keyboard Navigation
   const setupKeyboardShortcuts = () => {
     const handleKeyPress = async (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-
       switch (e.key) {
         case 'ArrowRight':
         case ' ':
@@ -318,125 +290,20 @@ const PresentationControl: React.FC = () => {
           break;
       }
     };
-
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   };
 
-  const loadContentToPresentation = async () => {
-    if (!selectedContentResult) return;
-    const item = searchResults.find(r => r.id === selectedContentResult);
-    if (!item) return;
-
-    try {
-      setLoading(true);
-
-      if (item.type === 'song') {
-        const info = await presentationApi.loadSong(item.data.id);
-        setPresentationInfo(info);
-      } else if (item.type === 'verse') {
-        // 1. Show just the searched verse on the main presentation screen
-        const verses = await bibleApi.getVerses(item.data.book, item.data.chapter, item.data.verse, item.data.verse);
-        if (verses && verses.length > 0) {
-          const v = verses[0];
-          const info = await presentationApi.addBibleSlide(v.book, v.chapter, v.verse.toString(), v.text);
-          setPresentationInfo(info);
-        } else {
-          alert('Verse not found');
-        }
-        // 2. Load full chapter into the slides panel
-        try {
-          const chVerses = await bibleApi.getChapterVerses(item.data.book, item.data.chapter);
-          setChapterSlides(chVerses.map(cv => ({ book: cv.book, chapter: cv.chapter, verse: cv.verse, text: cv.text })));
-          setChapterSlideLabel(`${item.data.book} ${item.data.chapter}`);
-          setHighlightedVerseNum(item.data.verse);
-        } catch (e) {
-          console.warn('Could not load chapter slides panel', e);
-        }
-      } else if (item.type === 'chapter') {
-        if (!item.data.chapter) {
-           alert('Please type a chapter number next to the book name.');
-           return;
-        }
-
-        const verses = await bibleApi.getChapterVerses(item.data.book, item.data.chapter);
-        if (verses && verses.length > 0) {
-          const slides: Slide[] = verses.map(v => ({
-            id: `bible-${v.book}-${v.chapter}-${v.verse}`,
-            type: 'bible' as any,
-            slide_type: 'bible',
-            title: `${v.book} ${v.chapter}:${v.verse}`,
-            content: `${v.text}\n\n${v.book} ${v.chapter}:${v.verse}`,
-            order_index: 0,
-            created_at: new Date().toISOString()
-          }));
-          const info = await presentationApi.addSlides(slides);
-          setPresentationInfo(info);
-          // Also populate the chapter slides panel
-          setChapterSlides(verses.map(v => ({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text })));
-          setChapterSlideLabel(`${item.data.book} ${item.data.chapter}`);
-          setHighlightedVerseNum(null);
-        } else {
-          alert('Chapter not found');
-        }
-      } else if (item.type === 'activity') {
-        const { serviceId, activity } = item.data;
-        // 1. Ensure the timer is loaded for this service 
-        // 2. Start the timer for this activity immediately
-        // (Wait, timer logic isn't fully integrated here—let's push a manual timer slide with the activity title)
-        // Alternatively, since timerApi uses current state, we can just push a slide manually.
-        const slides = [{
-            id: `timer-${Date.now()}`,
-            type: 'timer',
-            slide_type: 'timer',
-            title: activity.name,
-            content: (activity.duration_minutes * 60).toString(),
-            order_index: 0,
-            created_at: new Date().toISOString()
-        }] as unknown as Slide[];
-        
-        // Push presentation slide immediately
-        const info = await presentationApi.addSlides(slides);
-        setPresentationInfo(info);
-        
-        // In the background, load the timer state so the ticking syncs up perfectly
-        await timerApi.loadService(serviceId);
-        await timerApi.setActivity(activity.id);
-        await timerApi.startActivity();
-      }
-    } catch (error) {
-      console.error('Failed to load content:', error);
-      alert('Failed to load content to presentation');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openOutputWindow = async () => {
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('open_presentation_window');
-      setOutputWindow(true as any); // mark as open
-      console.log('[Presentation] Output window opened via backend command.');
-    } catch (error) {
-      console.error('[Presentation] Failed to open output window:', error);
-      alert(`Could not open output window: ${error}`);
-    }
-  };
-
+  // Presentation Handlers
   const handleStart = async () => {
     try {
-      // Start first — this sets is_live=true in the backend BEFORE the window opens,
-      // so the output window's loadState() call will see is_live=true.
       const info = await presentationApi.startPresentation();
       setPresentationInfo(info);
-
       if (!outputWindow) {
         await openOutputWindow();
       }
     } catch (error) {
       console.error('Failed to start presentation:', error);
-      alert(`Failed to start presentation: ${error}`);
     }
   };
 
@@ -476,18 +343,32 @@ const PresentationControl: React.FC = () => {
     }
   };
 
-  const handleClear = async () => {
+  const handleClearSlides = async () => {
     if (window.confirm('Clear all slides from presentation?')) {
       try {
         const info = await presentationApi.clearPresentation();
         setPresentationInfo(info);
+        setSlidesList([]);
       } catch (error) {
         console.error('Failed to clear presentation:', error);
       }
     }
   };
 
-  // Background handler
+
+
+  const openOutputWindow = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('open_presentation_window');
+      setOutputWindow(true);
+    } catch (error) {
+      console.error('[Presentation] Failed to open output window:', error);
+      alert(`Could not open output window: ${error}`);
+    }
+  };
+
+  // Set slide background
   const handleSetBackground = async (bg: string | null) => {
     try {
       const info = await presentationApi.setBackground(bg);
@@ -498,64 +379,248 @@ const PresentationControl: React.FC = () => {
     }
   };
 
-  // Timer Control Handlers for the Presentation View
-  const handleTimerPause = async () => await timerApi.pause();
-  const handleTimerResume = async () => await timerApi.resume();
-  const handleTimerStop = async () => await timerApi.stop();
-  const handleTimerAdd = async (sec: number) => await timerApi.addTime(sec);
-
-  // Chapter slide panel: single-click = highlight, double-click = present
-  const handleChapterSlideClick = (slide: ChapterSlide) => {
-    if (clickTimerRef.current) {
-      // Double-click detected
-      clearTimeout(clickTimerRef.current);
-      clickTimerRef.current = null;
-      handleChapterSlideDoubleClick(slide);
-    } else {
-      // Start timer for single-click
-      setHighlightedVerseNum(slide.verse);
-      clickTimerRef.current = setTimeout(() => {
-        clickTimerRef.current = null;
-        // single-click action: just highlight (already done above)
-      }, 250);
-    }
-  };
-
-  const handleChapterSlideDoubleClick = async (slide: ChapterSlide) => {
+  // Schedule Activity Execution
+  const handleActivityClick = async (activity: Activity) => {
     try {
-      setHighlightedVerseNum(slide.verse);
-      const info = await presentationApi.addBibleSlide(slide.book, slide.chapter, slide.verse.toString(), slide.text);
-      setPresentationInfo(info);
+      setLoading(true);
+      const notes = activity.notes || '';
+      
+      // Notes patterns: song_id: ..., bible_ref: ..., media_path: ...
+      const songMatch = notes.match(/song_id:\s*([a-zA-Z0-9-]+)/i);
+      const bibleMatch = notes.match(/bible_ref:\s*([^|\n]+)\|([^|\n]+)\|([^|\n]+)\|?([\s\S]*)/i);
+      const mediaMatch = notes.match(/media_path:\s*([^\n]+)/i);
+
+      if (songMatch) {
+        const info = await presentationApi.loadSong(songMatch[1]);
+        setPresentationInfo(info);
+      } else if (bibleMatch) {
+        const [_, book, chStr, versesStr, textStr] = bibleMatch;
+        const info = await presentationApi.addBibleSlide(book, parseInt(chStr), versesStr, textStr);
+        setPresentationInfo(info);
+      } else if (mediaMatch) {
+        const info = await presentationApi.setBackground(mediaMatch[1]);
+        setPresentationInfo(info);
+      } else {
+        // Match by title in songs database
+        const matchedSong = songsList.find(s => s.title.toLowerCase() === activity.name.toLowerCase());
+        if (matchedSong) {
+          const info = await presentationApi.loadSong(matchedSong.id);
+          setPresentationInfo(info);
+        } else {
+          // Custom activity - present notes as text
+          const info = await presentationApi.addTextSlide(activity.name, activity.notes || 'Activity Time');
+          setPresentationInfo(info);
+        }
+      }
+      await loadSlidesList();
     } catch (err) {
-      console.error('Failed to present verse from chapter panel:', err);
+      console.error('Failed to present activity:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Saved text slides helpers
-  const persistSavedSlides = (slides: SavedTextSlide[]) => {
-    setSavedTextSlides(slides);
-    localStorage.setItem(SAVED_SLIDES_KEY, JSON.stringify(slides));
+  // Library - Add to Schedule Timeline
+  const addSongToSchedule = async (song: Song) => {
+    if (!selectedService) return alert('Select a service schedule first!');
+    try {
+      await activityApi.create({
+        service_id: selectedService.id,
+        name: song.title,
+        duration_minutes: 10,
+        notes: `song_id: ${song.id}`
+      });
+      loadActivities(selectedService.id);
+    } catch (err) {
+      console.error('Failed to add song to schedule:', err);
+    }
   };
 
+  const addBibleVerseToSchedule = async (verse: BibleVerse) => {
+    if (!selectedService) return alert('Select a service schedule first!');
+    try {
+      await activityApi.create({
+        service_id: selectedService.id,
+        name: `Scripture: ${verse.book} ${verse.chapter}:${verse.verse}`,
+        duration_minutes: 5,
+        notes: `bible_ref: ${verse.book}|${verse.chapter}|${verse.verse}|${verse.text}`
+      });
+      loadActivities(selectedService.id);
+    } catch (err) {
+      console.error('Failed to add bible verse to schedule:', err);
+    }
+  };
+
+  const addMediaToSchedule = async (media: { name: string; path: string; mediaType?: string }) => {
+    if (!selectedService) return alert('Select a service schedule first!');
+    try {
+      await activityApi.create({
+        service_id: selectedService.id,
+        name: `Media: ${media.name}`,
+        duration_minutes: 5,
+        notes: `media_path: ${media.path}`
+      });
+      loadActivities(selectedService.id);
+    } catch (err) {
+      console.error('Failed to add media to schedule:', err);
+    }
+  };
+
+  const addAnnouncementToSchedule = async (slide: SavedTextSlide) => {
+    if (!selectedService) return alert('Select a service schedule first!');
+    try {
+      await activityApi.create({
+        service_id: selectedService.id,
+        name: slide.title || 'Announcement',
+        duration_minutes: 5,
+        notes: `announcement: ${slide.content}`
+      });
+      loadActivities(selectedService.id);
+    } catch (err) {
+      console.error('Failed to add announcement to schedule:', err);
+    }
+  };
+
+  // Bible search handler
+  const handleBibleSearch = async () => {
+    if (!bibleSearchQuery.trim()) return;
+    setIsBibleSearching(true);
+    try {
+      const results = await bibleApi.search(bibleSearchQuery, activeBibleVersion);
+      setBibleSearchResults(results.slice(0, 40));
+    } catch (err) {
+      console.error('Bible search failed:', err);
+    } finally {
+      setIsBibleSearching(false);
+    }
+  };
+
+  // Media Loader
+  const handleLoadMedia = async (type: 'image' | 'video' | 'audio') => {
+    try {
+      const paths = await mediaApi.openMediaFileDialog(type);
+      if (paths && paths.length > 0) {
+        const newFiles = paths.map(p => ({
+          name: p.split('/').pop() || type,
+          path: p,
+          isVideo: type === 'video',
+          mediaType: type,
+        }));
+        setMediaFiles(prev => [...prev, ...newFiles]);
+      }
+    } catch (err) {
+      console.error('Failed to open file dialog:', err);
+    }
+  };
+
+  // Present media directly to output
+  const handlePresentMedia = async (file: { name: string; path: string; mediaType: 'image' | 'video' | 'audio' }) => {
+    try {
+      setLoading(true);
+      if (file.mediaType === 'image') {
+        await presentationApi.presentImage(file.path, file.name);
+      } else if (file.mediaType === 'video') {
+        const convertedPath = await mediaApi.prepareForPlayback(file.path, 'video');
+        await presentationApi.presentVideo(convertedPath || file.path);
+      } else if (file.mediaType === 'audio') {
+        const convertedPath = await mediaApi.prepareForPlayback(file.path, 'audio');
+        await presentationApi.presentAudio(convertedPath || file.path);
+      }
+      await loadSlidesList();
+    } catch (err) {
+      console.error('Failed to present media:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Window Capture handlers
+  const handleListWindows = async () => {
+    setIsListingWindows(true);
+    try {
+      const windows = await presentationApi.listCapturableWindows();
+      setCapturableWindows(windows);
+      if (windows.length > 0) {
+        setSelectedWindowId(windows[0].id);
+        setSelectedWindowTitle(windows[0].title);
+      }
+    } catch (err: any) {
+      console.error('Failed to list windows:', err);
+      alert(`Window listing failed: ${err}`);
+    } finally {
+      setIsListingWindows(false);
+    }
+  };
+
+  const handleStartCapture = async () => {
+    if (!selectedWindowId) return alert('Select a window first');
+    try {
+      const msg = await presentationApi.startWindowCapture(selectedWindowId, selectedWindowTitle);
+      alert(msg);
+      const state = await presentationApi.getCaptureState();
+      setCaptureState(state);
+    } catch (err: any) {
+      console.error('Failed to start capture:', err);
+      alert(`Capture failed: ${err}`);
+    }
+  };
+
+  const handleStopCapture = async () => {
+    try {
+      const state = await presentationApi.stopWindowCapture();
+      setCaptureState(state);
+    } catch (err: any) {
+      console.error('Failed to stop capture:', err);
+    }
+  };
+
+  const handlePresentCapture = async () => {
+    try {
+      setLoading(true);
+      await presentationApi.presentWindowCapture();
+      await loadSlidesList();
+    } catch (err: any) {
+      console.error('Failed to present capture:', err);
+      alert(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePresentBibleWeb = async () => {
+    if (!bibleWebUrl.trim()) return alert('Enter a Bible website URL first');
+    try {
+      setLoading(true);
+      await presentationApi.presentBibleWeb(bibleWebUrl);
+      await loadSlidesList();
+    } catch (err: any) {
+      console.error('Failed to present Bible web:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Announcement Save Slide
   const handleSaveTextSlide = () => {
     if (!customTextContent.trim()) return;
     if (editingSavedSlideId) {
-      // Update existing
       const updated = savedTextSlides.map(s =>
         s.id === editingSavedSlideId
           ? { ...s, title: customTextTitle.trim(), content: customTextContent.trim() }
           : s
       );
-      persistSavedSlides(updated);
+      setSavedTextSlides(updated);
+      localStorage.setItem(SAVED_SLIDES_KEY, JSON.stringify(updated));
     } else {
-      // New save
       const newSlide: SavedTextSlide = {
         id: `txt-${Date.now()}`,
         title: customTextTitle.trim(),
         content: customTextContent.trim(),
         savedAt: new Date().toISOString(),
       };
-      persistSavedSlides([newSlide, ...savedTextSlides]);
+      const updated = [newSlide, ...savedTextSlides];
+      setSavedTextSlides(updated);
+      localStorage.setItem(SAVED_SLIDES_KEY, JSON.stringify(updated));
     }
     setShowTextModal(false);
     setCustomTextTitle('');
@@ -563,54 +628,48 @@ const PresentationControl: React.FC = () => {
     setEditingSavedSlideId(null);
   };
 
-  const handleDeleteSavedSlide = (id: string) => {
-    persistSavedSlides(savedTextSlides.filter(s => s.id !== id));
-  };
-
-  const handlePresentSavedSlide = async (slide: SavedTextSlide) => {
+  // Go live immediately with library item
+  const presentSongImmediately = async (song: Song) => {
     try {
       setLoading(true);
-      const info = await presentationApi.addTextSlide(slide.title || null, slide.content);
+      const info = await presentationApi.loadSong(song.id);
       setPresentationInfo(info);
+      await loadSlidesList();
     } catch (err) {
-      console.error('Failed to present saved slide:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const openNewTextModal = () => {
-    setCustomTextTitle('');
-    setCustomTextContent('');
-    setEditingSavedSlideId(null);
-    setShowTextModal(true);
+  const presentBibleImmediately = async (verse: BibleVerse) => {
+    try {
+      setLoading(true);
+      const info = await presentationApi.addBibleSlide(verse.book, verse.chapter, verse.verse.toString(), verse.text);
+      setPresentationInfo(info);
+      await loadSlidesList();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const openEditSavedModal = (slide: SavedTextSlide) => {
-    setCustomTextTitle(slide.title);
-    setCustomTextContent(slide.content);
-    setEditingSavedSlideId(slide.id);
-    setShowTextModal(true);
-  };
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(Math.abs(seconds) / 60);
-    const secs = Math.abs(seconds) % 60;
-    const sign = seconds < 0 ? '-' : '';
-    return `${sign}${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Helpers for background rendering in the control preview
-  const getBuiltinClass = (bg: string | null): string => {
-    if (!bg || !bg.startsWith('builtin:')) return '';
-    const key = bg.replace('builtin:', '');
-    return `bg-${key}`;
+  const presentAnnouncementImmediately = async (slide: SavedTextSlide) => {
+    try {
+      setLoading(true);
+      const info = await presentationApi.addTextSlide(slide.title || null, slide.content);
+      setPresentationInfo(info);
+      await loadSlidesList();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getCssBackgroundStyle = (bg: string | null): React.CSSProperties => {
     if (!bg) return {};
-    if (bg.startsWith('builtin:')) return {}; // handled by overlay div
-    // Local file path — use Tauri convertFileSrc
     return {
       backgroundImage: `url(${mediaApi.getAssetUrl(bg)})`,
       backgroundSize: 'cover',
@@ -618,444 +677,819 @@ const PresentationControl: React.FC = () => {
     };
   };
 
-  const currentTimer = timerInfo?.current_timer;
-  const isImageBg = currentBackground && !currentBackground.startsWith('builtin:');
-  const builtinClass = getBuiltinClass(currentBackground);
-
   const bgLayer = currentBackground && (
-    <div className="output-bg-container">
+    <div className="live-bg-container">
       <div 
-        className={`output-bg-layer ${builtinClass} ${isImageBg ? 'is-image' : ''}`} 
+        className="live-bg-layer is-image"
         style={getCssBackgroundStyle(currentBackground)}
       />
-      <div className="output-bg-overlay" />
+      <div className="live-bg-overlay" />
     </div>
   );
 
   return (
-    <div className="presentation-control">
-      <header className="page-header">
-        <div className="header-content">
-          <div className="header-icon-container">
-            <MdMic className="header-icon" />
-          </div>
-          <div>
-            <h1>Presentation Control</h1>
-            <p>
-              {presentationInfo?.total_slides || 0} slides loaded
-              {presentationInfo?.is_live && <span className="live-badge">Live</span>}
-            </p>
-          </div>
-        </div>
-        <div className="header-actions">
-          <button
-            className="btn btn-secondary"
-            onClick={openOutputWindow}
-          >
-            <MdMonitor size={20} /> Output Window
-          </button>
-          <button className="btn btn-secondary" onClick={() => setShowBrandingModal(true)}>
-            <MdPalette size={20} /> Branding & Styles
-          </button>
-          {presentationInfo?.is_live ? (
-            <button className="btn btn-danger" onClick={handleStop}>
-              <MdStop size={20} /> Stop
+    <div className="live-console-view">
+      {/* Console Top Toolbar */}
+      <header className="console-navbar">
+        <div className="navbar-actions">
+          {/* Group 1: Output Window & Settings */}
+          <div className="navbar-group">
+            <button className="navbar-btn" onClick={openOutputWindow} title="Output Window">
+              <MdMonitor size={18} /> <span className="btn-text">Output Window</span>
             </button>
-          ) : (
-            <button
-              className="btn btn-primary"
-              onClick={handleStart}
-              disabled={!presentationInfo?.total_slides}
+            <button className="navbar-btn" onClick={() => setShowBrandingModal(true)} title="Branding & Styles">
+              <MdPalette size={18} /> <span className="btn-text">Branding & Styles</span>
+            </button>
+            <button className="navbar-btn" onClick={() => setShowBgPicker(true)} title="Background Picker">
+              <MdWallpaper size={18} /> <span className="btn-text">Background</span>
+            </button>
+          </div>
+
+          <div className="navbar-divider" />
+
+          {/* Group 2: Screen Cover Overlays */}
+          <div className="navbar-group">
+            <button 
+              className={`navbar-btn action-black ${presentationInfo?.is_blank ? 'active' : ''}`}
+              onClick={handleToggleBlank}
+              title="Black Screen Cover (B)"
             >
-              <MdPlayArrow size={20} /> Start Presentation
+              <MdVisibilityOff size={18} /> <span className="btn-text">Black Screen</span>
             </button>
-          )}
+
+            <button 
+              className="navbar-btn action-logo"
+              onClick={() => {
+                if (churchSettings.churchLogoPath) {
+                  handleSetBackground(churchSettings.churchLogoPath);
+                } else {
+                  alert('Configure a logo path in Church Settings first!');
+                }
+              }}
+              title="Project Church Logo Backdrop"
+            >
+              <MdLandscape size={18} /> <span className="btn-text">Logo Backdrop</span>
+            </button>
+          </div>
+
+          <div className="navbar-divider" />
+
+          {/* Group 3: Slide Deck Actions */}
+          <div className="navbar-group">
+            <button className="navbar-btn action-clear" onClick={handleClearSlides} title="Clear Slide Deck">
+              <MdDelete size={18} /> <span className="btn-text">Clear Slides</span>
+            </button>
+          </div>
+
+          <div className="navbar-divider" />
+
+          {/* Group 4: Present/Live */}
+          <div className="navbar-group">
+            {presentationInfo?.is_live ? (
+              <button className="navbar-btn btn-danger" onClick={handleStop} title="Stop Live Broadcast">
+                <MdStop size={20} /> <span className="btn-text">Stop Live</span>
+              </button>
+            ) : (
+              <button className="navbar-btn btn-primary" onClick={handleStart} title="Start Live Broadcast">
+                <MdPlayArrow size={20} /> <span className="btn-text">Go Live</span>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="presentation-layout">
-        <div className="content-library">
-          <div className="section-header">
-            <h3><MdAdd size={22} /> Add Content</h3>
+      {/* Main Console Workspace */}
+      <div className="console-main-layout">
+        
+        {/* Left Column: Service Timeline */}
+        <aside className="schedule-panel glass-card">
+          <div className="panel-title flex-between">
+            <h3 className="panel-title-text">
+              <MdEvent className="panel-icon" /> Service Schedule
+            </h3>
           </div>
-          <div className="add-content-section">
-            <div className="search-bar">
-              <MdSearch className="search-icon" size={20} />
-              <input
-                type="text"
-                placeholder="Search songs, verses... (e.g. Romans 3:2)"
-                className="search-input"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            <div className="select-wrapper">
-              <select
-                value={selectedContentResult}
-                onChange={(e) => setSelectedContentResult(e.target.value)}
-                className="content-select"
-              >
-                <option value="">Select content to add...</option>
-                {searchResults.map((res) => (
-                  <option key={res.id} value={res.id}>
-                    {res.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              className="btn btn-primary btn-block"
-              onClick={loadContentToPresentation}
-              disabled={!selectedContentResult || loading}
+          <div className="service-selector-row">
+            <select
+              value={selectedService?.id || ''}
+              onChange={(e) => {
+                const s = services.find(srv => srv.id === e.target.value);
+                if (s) setSelectedService(s);
+              }}
+              className="console-select"
             >
-              {loading ? (
-                <>
-                  <FiRefreshCw className="spinner" size={20} /> Loading...
-                </>
-              ) : (
-                <>
-                  <MdAdd size={20} /> Load Content
-                </>
-              )}
-            </button>
-
-            <button
-              className="btn btn-text-slide btn-block"
-              onClick={openNewTextModal}
-            >
-              <MdEdit size={20} /> New Text / Announcement
-            </button>
+              {services.map(s => (
+                <option key={s.id} value={s.id}>{s.title} ({s.date})</option>
+              ))}
+            </select>
           </div>
 
-          {/* Saved text slides list */}
-          {savedTextSlides.length > 0 && (
-            <div className="saved-slides-section">
-              <div className="saved-slides-label">Saved Slides</div>
-              <div className="saved-slides-list">
-                {(showAllSavedSlides ? savedTextSlides : savedTextSlides.slice(0, 2)).map(slide => (
-                  <div key={slide.id} className="saved-slide-item">
-                    <div className="saved-slide-info" onClick={() => openEditSavedModal(slide)}>
-                      <div className="saved-slide-title">
-                        {slide.title || <span style={{ opacity: 0.5, fontStyle: 'italic' }}>Untitled</span>}
-                      </div>
-                      <div className="saved-slide-preview">{slide.content.substring(0, 60)}{slide.content.length > 60 ? '…' : ''}</div>
-                    </div>
-                    <div className="saved-slide-actions">
-                      <button
-                        className="saved-slide-btn present"
-                        title="Present now"
-                        disabled={loading}
-                        onClick={() => handlePresentSavedSlide(slide)}
-                      >
-                        <MdPlayArrow size={16} />
-                      </button>
-                      <button
-                        className="saved-slide-btn delete"
-                        title="Delete"
-                        onClick={() => handleDeleteSavedSlide(slide.id)}
-                      >
-                        <MdDelete size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {savedTextSlides.length > 2 && (
-                <button
-                  className="btn-view-more-slides"
-                  onClick={() => setShowAllSavedSlides(!showAllSavedSlides)}
+          <div className="activities-list scrollable">
+            {activities.length === 0 ? (
+              <div className="empty-panel-text">No activities scheduled. Add items from resources below.</div>
+            ) : (
+              activities.map((act, index) => (
+                <div 
+                  key={act.id} 
+                  className="activity-item-card"
+                  onClick={() => handleActivityClick(act)}
                 >
-                  {showAllSavedSlides ? 'View Less' : `View More (${savedTextSlides.length - 2} hidden)`}
-                </button>
-              )}
-            </div>
-          )}
+                  <span className="activity-index">{index + 1}</span>
+                  <div className="activity-details">
+                    <h4>{act.name}</h4>
+                    <p>{act.leader ? `Leader: ${act.leader}` : 'No leader'} • {act.duration_minutes}m</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </aside>
 
-          <button
-            className="btn btn-outline btn-block mt-auto btn-danger-outline"
-            onClick={handleClear}
-            disabled={!presentationInfo?.total_slides}
-          >
-            <MdDelete size={20} /> Clear Slides
-          </button>
-        </div>
+        {/* Middle Column: Slide Grid */}
+        <main className="slide-grid-panel glass-card">
+          <div className="panel-title flex-between">
+            <h3 className="panel-title-text">
+              <MdSlideshow className="panel-icon" /> Active Presentation Slides
+            </h3>
+            {presentationInfo?.total_slides ? (
+              <span className="slide-counter-badge">
+                Slide {presentationInfo.current_index + 1} of {presentationInfo.total_slides}
+              </span>
+            ) : null}
+          </div>
 
-        <div className="current-preview">
-          <div className="preview-label-row">
-            <span className="preview-label">Current Slide</span>
-            <button
-              className={`bg-pick-btn ${currentBackground ? 'has-bg' : ''}`}
-              onClick={() => setShowBgPicker(true)}
-              title="Set presentation background"
+          <div className="slide-grid-container scrollable">
+            {loading ? (
+              <div className="spinner-container">
+                <FiRefreshCw className="spinner" size={32} />
+                <p>Loading slides...</p>
+              </div>
+            ) : slidesList.length === 0 ? (
+              <div className="empty-panel-text">
+                No active slides loaded.<br/>Select an item from the schedule or resources tab.
+              </div>
+            ) : (
+              <div className="slides-layout-grid">
+                {slidesList.map((slide, index) => {
+                  const isActive = presentationInfo?.current_index === index;
+                  const isMedia = slide.slide_type === 'image' || slide.slide_type === 'video' || slide.slide_type === 'audio';
+                  return (
+                    <div 
+                      key={slide.id} 
+                      className={`slide-grid-item ${isActive ? 'active' : ''} ${isMedia ? 'is-media' : ''}`}
+                      onClick={() => presentationApi.gotoSlide(index)}
+                    >
+                      <div className="slide-item-header">
+                        <span>Slide {index + 1}</span>
+                        {slide.title && <span className="slide-item-tag">{slide.title}</span>}
+                        {isMedia && (
+                          <span className={`slide-media-badge ${slide.slide_type}`}>
+                            {slide.slide_type === 'image' ? <MdImage size={14} /> : slide.slide_type === 'video' ? <MdMovie size={14} /> : <MdMusicNote size={14} />}
+                          </span>
+                        )}
+                      </div>
+                      <div className="slide-item-content">
+                        {isMedia ? (
+                          <div className="media-slide-indicator">
+                            <span className="media-type-label">
+                              {slide.slide_type === 'image' ? 'Image' : slide.slide_type === 'video' ? 'Video' : 'Audio'}
+                            </span>
+                            <span className="media-file-name">{slide.title || slide.slide_type}</span>
+                          </div>
+                        ) : (
+                          <div className="rich-text-render" dangerouslySetInnerHTML={{ __html: slide.content }} />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Quick controls bar below grid */}
+          <div className="slide-grid-controls">
+            <button 
+              className="console-control-btn"
+              onClick={handlePrevious}
+              disabled={!presentationInfo?.total_slides || presentationInfo.current_index === 0}
             >
-              <MdImage size={16} />
-              {currentBackground
-                ? (currentBackground.startsWith('builtin:')
-                    ? BUILTIN_THEMES.find(t => t.key === currentBackground)?.name ?? 'Custom'
-                    : currentBackground.split('/').pop())
-                : 'Background'}
+              <MdSkipPrevious size={20} /> Prev Slide
+            </button>
+            
+            <button 
+              className="console-control-btn"
+              onClick={handleNext}
+              disabled={!presentationInfo?.total_slides || presentationInfo.current_index >= (presentationInfo.total_slides - 1)}
+            >
+              Next Slide <MdSkipNext size={20} />
             </button>
           </div>
-          <div className="preview-box">
+        </main>
+
+        {/* Right Column: Live Output Monitor */}
+        <aside className="monitor-panel glass-card">
+          <div className="panel-title flex-between">
+            <h3 className="panel-title-text">
+              <MdTv className="panel-icon-live" /> Live Output Monitor
+            </h3>
+          </div>
+          <div className="live-monitor-box">
             {bgLayer}
             {presentationInfo?.is_blank ? (
-              <div className="blank-screen">Screen Blank</div>
+              <div className="blank-cover">Black Screen Cover Active</div>
             ) : presentationInfo?.current_slide ? (
-              <div className="slide-preview">
+              <div className="monitor-slide-preview">
                 {presentationInfo.current_slide.title && (
-                  <div className="slide-title">{presentationInfo.current_slide.title}</div>
+                  <div className="monitor-slide-title">{presentationInfo.current_slide.title}</div>
                 )}
-                <div className="slide-content">
+                <div className="monitor-slide-content">
                   {presentationInfo.current_slide.content}
                 </div>
               </div>
             ) : (
-              <div className="no-slide">No slide loaded</div>
+              <div className="no-live-cover">Projector Screen Idle</div>
             )}
           </div>
-          <div className="slide-counter">
-            {presentationInfo?.total_slides ? (
-              <>
-                Slide {presentationInfo.current_index + 1} of {presentationInfo.total_slides}
-              </>
-            ) : (
-              'No slides'
+          
+          <div className="monitor-details">
+            <div className="detail-row">
+              <span>Projection Mode:</span>
+              <strong className={presentationInfo?.is_live ? 'live-color' : 'idle-color'}>
+                {presentationInfo?.is_live ? '● Live Broadcasting' : 'Idle'}
+              </strong>
+            </div>
+            {currentBackground && (
+              <div className="detail-row">
+                <span>Background:</span>
+                <strong>{currentBackground.split('/').pop()}</strong>
+              </div>
             )}
           </div>
+        </aside>
+
+      </div>
+
+      {/* Bottom Row: Tabbed Resources Explorer */}
+      <footer className="console-resources-explorer glass-card">
+        <div className="explorer-tabs-bar">
+          <button 
+            className={`explorer-tab-btn ${activeTab === 'songs' ? 'active' : ''}`}
+            onClick={() => setActiveTab('songs')}
+          >
+            <MdLibraryMusic size={18} /> Songs Database
+          </button>
+          <button 
+            className={`explorer-tab-btn ${activeTab === 'bible' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bible')}
+          >
+            <MdBook size={18} /> Scriptures Browser
+          </button>
+          <button 
+            className={`explorer-tab-btn ${activeTab === 'media' ? 'active' : ''}`}
+            onClick={() => setActiveTab('media')}
+          >
+            <MdImage size={18} /> Media
+          </button>
+          <button 
+            className={`explorer-tab-btn ${activeTab === 'announcements' ? 'active' : ''}`}
+            onClick={() => setActiveTab('announcements')}
+          >
+            <MdEdit size={18} /> Announcement Slides
+          </button>
+          <button 
+            className={`explorer-tab-btn ${activeTab === 'capture' ? 'active' : ''}`}
+            onClick={() => setActiveTab('capture')}
+          >
+            <MdMonitor size={18} /> Window Capture
+          </button>
         </div>
 
-        <div className="next-preview">
-          {chapterSlides.length > 0 ? (
-            // When a chapter is loaded, replace Next Slide panel with Chapter Slides Panel
-            <div className="chapter-slides-panel">
-              <div className="chapter-slides-header">
-                <span className="preview-label">📖 {chapterSlideLabel} — All Verses</span>
-                <button
-                  className="chapter-slides-close"
-                  onClick={() => { setChapterSlides([]); setChapterSlideLabel(''); setHighlightedVerseNum(null); }}
-                  title="Close panel"
-                >✕</button>
+        <div className="explorer-tab-body">
+          
+          {/* TAB 1: Songs Database */}
+          {activeTab === 'songs' && (
+            <div className="explorer-dual-pane">
+              <div className="pane-left flex-column">
+                <div className="search-bar-row">
+                  <MdSearch className="search-row-icon" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search song library..."
+                    value={songSearchQuery}
+                    onChange={(e) => {
+                      setSongSearchQuery(e.target.value);
+                      const q = e.target.value.toLowerCase();
+                      if (q.trim()) {
+                        songApi.search(q).then(setSongsList).catch(console.error);
+                      } else {
+                        loadSongs();
+                      }
+                    }}
+                    className="console-input"
+                  />
+                </div>
+                <div className="pane-items-list scrollable">
+                  {songsList.map(song => (
+                    <div 
+                      key={song.id} 
+                      className={`pane-item-row ${selectedLibrarySong?.id === song.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedLibrarySong(song)}
+                    >
+                      <div className="pane-item-info">
+                        <strong>{song.title}</strong>
+                        <span>{song.key ? `Key: ${song.key}` : 'No key'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="chapter-slides-hint">Single-click to highlight · Double-click to present</div>
-              <div className="chapter-slides-list">
-                {chapterSlides.map(slide => (
-                  <div
-                    key={slide.verse}
-                    className={`chapter-slide-item${highlightedVerseNum === slide.verse ? ' highlighted' : ''}`}
-                    onClick={() => handleChapterSlideClick(slide)}
-                    title={`Double-click to present ${slide.book} ${slide.chapter}:${slide.verse}`}
-                  >
-                    <span className="chapter-slide-num">{slide.verse}</span>
-                    <span className="chapter-slide-text">{slide.text.length > 80 ? slide.text.substring(0, 80) + '…' : slide.text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="preview-label">Next Slide</div>
-              <div className="preview-box small">
-                {presentationInfo?.next_slide ? (
-                  <div className="slide-preview">
-                    {presentationInfo.next_slide.title && (
-                      <div className="slide-title">{presentationInfo.next_slide.title}</div>
-                    )}
-                    <div className="slide-content">
-                      {presentationInfo.next_slide.content}
+              <div className="pane-right scrollable">
+                {selectedLibrarySong ? (
+                  <div className="resource-preview-panel">
+                    <div className="preview-header">
+                      <h3>{selectedLibrarySong.title}</h3>
+                      {selectedLibrarySong.key && <span className="key-tag">Key: {selectedLibrarySong.key}</span>}
+                    </div>
+                    <div className="lyrics-preview-body">
+                      {selectedLibrarySong.lyrics}
+                    </div>
+                    <div className="preview-actions">
+                      <button className="preview-action-btn primary" onClick={() => presentSongImmediately(selectedLibrarySong)}>
+                        <MdPlayArrow size={16} /> Present Now
+                      </button>
+                      <button className="preview-action-btn" onClick={() => addSongToSchedule(selectedLibrarySong)}>
+                        <MdAdd size={16} /> Add to Schedule
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="no-slide">End of presentation</div>
+                  <div className="empty-preview-panel">Select a song to preview</div>
                 )}
               </div>
-            </>
+            </div>
           )}
-        </div>
-      </div>
 
-      {currentTimer && presentationInfo?.current_slide?.slide_type === 'timer' && (
-        <div className="mini-timer-panel">
-           <div className="mini-timer-info">
-              <MdTimer size={20} color="#10b981" />
-              <strong>{currentTimer.activity_name}</strong>
-              <span className={`mini-time ${currentTimer.is_overrun ? 'overrun' : ''}`}>
-                 {currentTimer.is_overrun ? '+' : ''}
-                 {formatTime(currentTimer.is_overrun ? currentTimer.elapsed_seconds - currentTimer.duration_seconds : currentTimer.duration_seconds - currentTimer.elapsed_seconds)}
-              </span>
-           </div>
-           <div className="mini-timer-actions">
-              <button className="btn btn-secondary btn-sm" onClick={currentTimer.is_running ? handleTimerPause : handleTimerResume}>
-                 {currentTimer.is_running ? <><MdPause size={16}/> Pause</> : <><MdPlayArrow size={16}/> Resume</>}
-              </button>
-              <button className="btn btn-danger-outline btn-sm" onClick={handleTimerStop}>
-                 <MdStop size={16} /> Stop
-              </button>
-              <div className="mini-timer-adjust">
-                 <button onClick={() => handleTimerAdd(60)}>+1m</button>
-                 <button onClick={() => handleTimerAdd(300)}>+5m</button>
-                 <button onClick={() => handleTimerAdd(-60)}>-1m</button>
+          {/* TAB 2: Scriptures Browser */}
+          {activeTab === 'bible' && (
+            <div className="explorer-dual-pane">
+              <div className="pane-left flex-column">
+                <div className="search-bar-row gap-sm">
+                  <select 
+                    value={activeBibleVersion} 
+                    onChange={async (e) => {
+                      const v = e.target.value;
+                      setActiveBibleVersion(v);
+                      await bibleApi.setActiveVersion(v);
+                    }}
+                    className="console-select select-compact"
+                  >
+                    {bibleVersions.map(ver => (
+                      <option key={ver} value={ver}>{ver}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedBibleBook}
+                    onChange={(e) => {
+                      setSelectedBibleBook(e.target.value);
+                      setSelectedBibleChapter(1);
+                    }}
+                    className="console-select select-compact"
+                  >
+                    {bibleBooks.map(book => (
+                      <option key={book[0]} value={book[0]}>{book[0]}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedBibleChapter}
+                    onChange={(e) => setSelectedBibleChapter(parseInt(e.target.value))}
+                    className="console-select select-compact"
+                  >
+                    {Array.from({ length: bibleBooks.find(b => b[0] === selectedBibleBook)?.[2] || 1 }).map((_, i) => (
+                      <option key={i+1} value={i+1}>Ch {i+1}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedVerseNumber}
+                    onChange={(e) => {
+                      const vn = parseInt(e.target.value);
+                      setSelectedVerseNumber(vn);
+                      const found = bibleVerses.find(bv => bv.verse === vn);
+                      if (found) setSelectedBibleVerse(found);
+                    }}
+                    className="console-select select-compact"
+                    disabled={bibleVerses.length === 0}
+                  >
+                    {bibleVerses.map(v => (
+                      <option key={v.verse} value={v.verse}>v. {v.verse}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="bible-search-row">
+                  <input
+                    type="text"
+                    placeholder="Search scripture text..."
+                    value={bibleSearchQuery}
+                    onChange={e => setBibleSearchQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleBibleSearch()}
+                    className="console-input"
+                  />
+                  <button className="btn-bible-search" onClick={handleBibleSearch}>
+                    Search
+                  </button>
+                         <div className="pane-items-list scrollable">
+                  {isBibleSearching ? (
+                    <div className="spinner-container" style={{ padding: '2rem 0' }}>
+                      <FiRefreshCw className="spinner" size={24} />
+                      <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>Searching Bible...</p>
+                    </div>
+                  ) : bibleSearchQuery.trim() && bibleSearchResults.length > 0 ? (
+                    bibleSearchResults.map(v => (
+                      <div 
+                        key={v.id} 
+                        className={`pane-item-row ${selectedBibleVerse?.id === v.id ? 'selected' : ''}`}
+                        onClick={() => setSelectedBibleVerse(v)}
+                      >
+                        <div className="pane-item-info">
+                          <strong>{v.book} {v.chapter}:{v.verse}</strong>
+                          <span className="text-truncate">{v.text}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    bibleVerses.map(v => (
+                      <div 
+                        key={v.id} 
+                        className={`pane-item-row ${selectedBibleVerse?.id === v.id ? 'selected' : ''}`}
+                        onClick={() => setSelectedBibleVerse(v)}
+                      >
+                        <div className="pane-item-info">
+                          <strong>Verse {v.verse}</strong>
+                          <span className="text-truncate">{v.text}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>          </div>
               </div>
-           </div>
+              <div className="pane-right scrollable">
+                {selectedBibleVerse ? (
+                  <div className="resource-preview-panel">
+                    <div className="preview-header">
+                      <h3>{selectedBibleVerse.book} {selectedBibleVerse.chapter}:{selectedBibleVerse.verse}</h3>
+                      <span className="key-tag">{selectedBibleVerse.version}</span>
+                    </div>
+                    <div className="lyrics-preview-body text-large">
+                      "{selectedBibleVerse.text}"
+                    </div>
+                    <div className="preview-actions">
+                      <button className="preview-action-btn primary" onClick={() => presentBibleImmediately(selectedBibleVerse)}>
+                        <MdPlayArrow size={16} /> Present Now
+                      </button>
+                      <button className="preview-action-btn" onClick={() => addBibleVerseToSchedule(selectedBibleVerse)}>
+                        <MdAdd size={16} /> Add to Schedule
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-preview-panel">Select a verse to preview</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: Background & Presentation Media */}
+          {activeTab === 'media' && (
+            <div className="explorer-dual-pane">
+              <div className="pane-left flex-column">
+                <div className="media-type-filter-row">
+                  <button
+                    className={`media-type-btn ${mediaTypeFilter === 'image' ? 'active' : ''}`}
+                    onClick={() => setMediaTypeFilter('image')}
+                  >
+                    <MdImage size={14} /> Images
+                  </button>
+                  <button
+                    className={`media-type-btn ${mediaTypeFilter === 'video' ? 'active' : ''}`}
+                    onClick={() => setMediaTypeFilter('video')}
+                  >
+                    <MdMovie size={14} /> Videos
+                  </button>
+                  <button
+                    className={`media-type-btn ${mediaTypeFilter === 'audio' ? 'active' : ''}`}
+                    onClick={() => setMediaTypeFilter('audio')}
+                  >
+                    <MdMusicNote size={14} /> Audio
+                  </button>
+                </div>
+                <div className="media-actions-row">
+                  <button className="console-btn-block" onClick={() => handleLoadMedia(mediaTypeFilter)}>
+                    <MdFolderOpen size={16} /> Load {mediaTypeFilter === 'image' ? 'Image' : mediaTypeFilter === 'video' ? 'Video' : 'Audio'} Files
+                  </button>
+                </div>
+                <div className="pane-items-list scrollable">
+                  {mediaFiles.filter(f => f.mediaType === mediaTypeFilter).length > 0 ? (
+                    mediaFiles.filter(f => f.mediaType === mediaTypeFilter).map((m, idx) => (
+                      <div 
+                        key={idx} 
+                        className={`pane-item-row ${selectedMediaFile?.path === m.path ? 'selected' : ''}`}
+                        onClick={() => setSelectedMediaFile(m)}
+                      >
+                        <div className="pane-item-info">
+                          <strong>{m.name}</strong>
+                          <span>Uploaded {m.mediaType}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="empty-panel-text">No {mediaTypeFilter} files loaded. Click above to browse.</div>
+                  )}
+                </div>
+              </div>
+              <div className="pane-right scrollable">
+                {selectedMediaFile ? (
+                  <div className="resource-preview-panel">
+                    <div className="preview-header">
+                      <h3>{selectedMediaFile.name}</h3>
+                    </div>
+                    
+                    <div className="media-preview-box">
+                      {selectedMediaFile.mediaType === 'video' ? (
+                        <video src={mediaApi.getAssetUrl(selectedMediaFile.path)} className="media-video-preview" controls />
+                      ) : selectedMediaFile.mediaType === 'audio' ? (
+                        <div className="media-audio-preview-box">
+                          <span className="audio-preview-icon"><MdMusicNote size={48} /></span>
+                          <audio src={mediaApi.getAssetUrl(selectedMediaFile.path)} controls className="media-audio-preview" />
+                        </div>
+                      ) : (
+                        <img 
+                          src={mediaApi.getAssetUrl(selectedMediaFile.path)} 
+                          alt="Media Preview" 
+                          className="media-image-large"
+                        />
+                      )}
+                    </div>
+
+                    <div className="preview-actions">
+                      {selectedMediaFile.mediaType === 'image' && (
+                        <button className="preview-action-btn primary" onClick={() => handlePresentMedia(selectedMediaFile)}>
+                          <MdPlayArrow size={16} /> Present Now
+                        </button>
+                      )}
+                      {selectedMediaFile.mediaType === 'video' && (
+                        <button className="preview-action-btn primary" onClick={() => handlePresentMedia(selectedMediaFile)}>
+                          <MdPlayArrow size={16} /> Play Video
+                        </button>
+                      )}
+                      {selectedMediaFile.mediaType === 'audio' && (
+                        <button className="preview-action-btn primary" onClick={() => handlePresentMedia(selectedMediaFile)}>
+                          <MdPlayArrow size={16} /> Play Audio
+                        </button>
+                      )}
+                      <button className="preview-action-btn" onClick={() => handleSetBackground(selectedMediaFile.path)}>
+                        Set Background
+                      </button>
+                      <button className="preview-action-btn" onClick={() => addMediaToSchedule(selectedMediaFile)}>
+                        <MdAdd size={16} /> Add to Schedule
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-preview-panel">Select a media item to preview</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: Window Capture & Bible Web */}
+          {activeTab === 'capture' && (
+            <div className="capture-tab-container">
+              <div className="capture-section">
+                <h4 className="capture-header-text">
+                  <MdMonitor size={18} /> External Window Capture
+                </h4>
+                <p className="capture-description">Capture an external application window (Bible app, PDF reader, etc.) and display it on the presentation screen.</p>
+                <p className="capture-note">Requires: <code>wmctrl</code> + <code>import</code> (ImageMagick), <code>maim</code>, <code>grim</code>, or <code>scrot</code>.</p>
+                
+                <div className="capture-controls-row">
+                  <button className="console-btn-block" onClick={handleListWindows} disabled={isListingWindows}>
+                    {isListingWindows ? 'Scanning...' : 'List Available Windows'}
+                  </button>
+                </div>
+
+                {capturableWindows.length > 0 && (
+                  <div className="capture-window-list scrollable">
+                    {capturableWindows.map(win => (
+                      <div
+                        key={win.id}
+                        className={`pane-item-row ${selectedWindowId === win.id ? 'selected' : ''}`}
+                        onClick={() => {
+                          setSelectedWindowId(win.id);
+                          setSelectedWindowTitle(win.title);
+                        }}
+                      >
+                        <div className="pane-item-info">
+                          <strong>{win.title}</strong>
+                          <span>{win.app_name} — ID: {win.id}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {capturableWindows.length === 0 && !isListingWindows && (
+                  <div className="capture-empty-state">
+                    <p>Click "List Available Windows" to detect open application windows.</p>
+                    <p className="capture-hint">Ensure <code>wmctrl</code> is installed for best results.</p>
+                  </div>
+                )}
+
+                <div className="capture-action-row">
+                  <button
+                    className="preview-action-btn primary"
+                    onClick={handleStartCapture}
+                    disabled={!selectedWindowId || captureState.is_capturing}
+                  >
+                    <MdPlayArrow size={16} /> Start Capture
+                  </button>
+                  <button
+                    className="preview-action-btn"
+                    onClick={handleStopCapture}
+                    disabled={!captureState.is_capturing}
+                  >
+                    <MdStop size={16} /> Stop Capture
+                  </button>
+                  <button
+                    className="preview-action-btn primary"
+                    onClick={handlePresentCapture}
+                    disabled={!captureState.is_capturing}
+                  >
+                    <MdPlayArrow size={16} /> Present to Screen
+                  </button>
+                </div>
+
+                {captureState.is_capturing && (
+                  <div className="capture-status">
+                    <span className="live-dot" /> Capturing: <strong>{captureState.window_title}</strong>
+                  </div>
+                )}
+              </div>
+
+              <div className="capture-divider" />
+
+              <div className="capture-section">
+                <h4 className="capture-header-text">
+                  <MdPublic size={18} /> Web Bible Presentation
+                </h4>
+                <p className="capture-description">Display an online Bible website (BibleGateway, Bible.com, etc.) on the presentation screen.</p>
+                
+                <div className="bible-web-input-row">
+                  <input
+                    type="text"
+                    className="console-input"
+                    value={bibleWebUrl}
+                    onChange={e => setBibleWebUrl(e.target.value)}
+                    placeholder="https://www.biblegateway.com"
+                  />
+                  <button className="preview-action-btn primary" onClick={handlePresentBibleWeb}>
+                    <MdPlayArrow size={16} /> Present
+                  </button>
+                </div>
+
+                <div className="bible-web-quick-links">
+                  <span>Quick links:</span>
+                  <button className="quick-link-btn" onClick={() => setBibleWebUrl('https://www.biblegateway.com')}>BibleGateway</button>
+                  <button className="quick-link-btn" onClick={() => setBibleWebUrl('https://www.bible.com')}>Bible.com</button>
+                  <button className="quick-link-btn" onClick={() => setBibleWebUrl('https://www.blueletterbible.org')}>BlueLetterBible</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: Custom announcements */}
+          {activeTab === 'announcements' && (
+            <div className="explorer-dual-pane">
+              <div className="pane-left flex-column">
+                <div className="media-actions-row">
+                  <button className="console-btn-block" onClick={() => {
+                    setCustomTextTitle('');
+                    setCustomTextContent('');
+                    setEditingSavedSlideId(null);
+                    setShowTextModal(true);
+                  }}>
+                    <MdCreate size={16} /> Create Custom Text Slide
+                  </button>
+                </div>
+                <div className="pane-items-list scrollable">
+                  {savedTextSlides.length === 0 ? (
+                    <div className="empty-panel-text">No custom slides saved. Click the button to create.</div>
+                  ) : (
+                    savedTextSlides.map(slide => (
+                      <div 
+                        key={slide.id} 
+                        className={`pane-item-row ${selectedAnnouncement?.id === slide.id ? 'selected' : ''}`}
+                        onClick={() => setSelectedAnnouncement(slide)}
+                      >
+                        <div className="pane-item-info">
+                          <strong>{slide.title || 'Untitled Slide'}</strong>
+                          <span className="text-truncate">{slide.content}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="pane-right scrollable">
+                {selectedAnnouncement ? (
+                  <div className="resource-preview-panel">
+                    <div className="preview-header">
+                      <h3>{selectedAnnouncement.title || 'Custom Slide'}</h3>
+                    </div>
+                    <div className="lyrics-preview-body">
+                      {selectedAnnouncement.content}
+                    </div>
+                    <div className="preview-actions">
+                      <button className="preview-action-btn primary" onClick={() => presentAnnouncementImmediately(selectedAnnouncement)}>
+                        <MdPlayArrow size={16} /> Present Now
+                      </button>
+                      <button className="preview-action-btn" onClick={() => addAnnouncementToSchedule(selectedAnnouncement)}>
+                        <MdAdd size={16} /> Add to Schedule
+                      </button>
+                      <button className="preview-action-btn btn-danger-outline" onClick={() => {
+                        const updated = savedTextSlides.filter(s => s.id !== selectedAnnouncement.id);
+                        setSavedTextSlides(updated);
+                        localStorage.setItem(SAVED_SLIDES_KEY, JSON.stringify(updated));
+                        setSelectedAnnouncement(null);
+                      }}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-preview-panel">Select a custom slide to preview</div>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </footer>
+
+      {/* Modals */}
+      {showBgPicker && (
+        <BackgroundPicker
+          currentBackground={currentBackground}
+          onApply={handleSetBackground}
+          onClose={() => setShowBgPicker(false)}
+        />
+      )}
+
+      {showBrandingModal && (
+        <ChurchBrandingModal onClose={() => setShowBrandingModal(false)} />
+      )}
+
+      {showTextModal && (
+        <div className="text-slide-modal-overlay" onClick={() => setShowTextModal(false)}>
+          <div className="text-slide-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="text-slide-modal-header">
+              <div className="text-slide-modal-title">
+                <MdEdit size={22} />
+                <span>{editingSavedSlideId ? 'Edit Saved Slide' : 'New Custom Slide'}</span>
+              </div>
+              <button className="text-slide-close-btn" onClick={() => setShowTextModal(false)}>
+                <MdClose size={20} />
+              </button>
+            </div>
+
+            <div className="text-slide-modal-body">
+              <label className="text-slide-label">Title (optional)</label>
+              <input
+                type="text"
+                className="text-slide-input"
+                placeholder="e.g. Announcements"
+                value={customTextTitle}
+                onChange={(e) => setCustomTextTitle(e.target.value)}
+              />
+
+              <label className="text-slide-label">Slide Content</label>
+              <RichTextEditor
+                value={customTextContent}
+                onChange={setCustomTextContent}
+                placeholder="Type slide text here..."
+              />
+            </div>
+
+            <div className="text-slide-modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowTextModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSaveTextSlide} disabled={!customTextContent.trim()}>
+                Save Announcement
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="presentation-controls">
-        <button
-          className="control-btn"
-          onClick={handlePrevious}
-          disabled={!presentationInfo?.total_slides || presentationInfo?.current_index === 0}
-        >
-          <MdSkipPrevious size={24} /> Previous
-        </button>
-        <button
-          className={`control-btn blank-btn ${presentationInfo?.is_blank ? 'is-blanking' : ''}`}
-          onClick={handleToggleBlank}
-          disabled={!presentationInfo?.is_live}
-        >
-          {presentationInfo?.is_blank ? (
-            <>
-              <MdVisibility size={24} /> Show
-            </>
-          ) : (
-            <>
-              <MdVisibilityOff size={24} /> Blank
-            </>
-          )}
-        </button>
-        <button
-          className="control-btn primary"
-          onClick={handleNext}
-          disabled={
-            !presentationInfo?.total_slides ||
-            presentationInfo?.current_index >= (presentationInfo?.total_slides - 1)
-          }
-        >
-          Next <MdSkipNext size={24} />
-        </button>
-      </div>
-
-      <div className="quick-access-toolbar">
-        <div className="toolbar-section">
-          <strong>Quick Access</strong>
-        </div>
-        <div className="toolbar-buttons">
-          <button className="toolbar-btn" title="Previous Slide (←)">
-            <MdSkipPrevious size={20} />
-          </button>
-          <button className="toolbar-btn" title="Toggle Blank Screen (B)">
-            <MdVisibilityOff size={20} />
-          </button>
-          <button className="toolbar-btn" title="Stop Presentation (ESC)">
-            <MdStop size={20} />
-          </button>
-          <button className="toolbar-btn primary-tool" title="Next Slide (Space/→)">
-            <MdSkipNext size={20} />
-          </button>
-        </div>
-        <div className="toolbar-shortcuts">
-          <span>Space/→: Next</span>
-          <span>←: Prev</span>
-          <span>B: Blank</span>
-          <span>ESC: Stop</span>
-        </div>
-      </div>
-
-    {/* Background Picker Modal */}
-    {showBgPicker && (
-      <BackgroundPicker
-        currentBackground={currentBackground}
-        onApply={handleSetBackground}
-        onClose={() => setShowBgPicker(false)}
-      />
-    )}
-
-    {/* Church Branding Modal */}
-    {showBrandingModal && (
-       <ChurchBrandingModal onClose={() => setShowBrandingModal(false)} />
-    )}
-
-    {/* Custom Text Slide Modal */}
-    {showTextModal && (
-      <div className="text-slide-modal-overlay" onClick={() => setShowTextModal(false)}>
-        <div className="text-slide-modal-box" onClick={(e) => e.stopPropagation()}>
-          <div className="text-slide-modal-header">
-            <div className="text-slide-modal-title">
-              <MdEdit size={22} />
-              <span>{editingSavedSlideId ? 'Edit Saved Slide' : 'New Text Slide'}</span>
-            </div>
-            <button className="text-slide-close-btn" onClick={() => setShowTextModal(false)}>
-              <MdClose size={20} />
-            </button>
-          </div>
-
-          <div className="text-slide-modal-body">
-            <label className="text-slide-label">Title <span className="text-slide-optional">(optional)</span></label>
-            <input
-              type="text"
-              className="text-slide-input"
-              placeholder="e.g. Announcements"
-              value={customTextTitle}
-              onChange={(e) => setCustomTextTitle(e.target.value)}
-            />
-
-            <label className="text-slide-label">Content</label>
-            <textarea
-              className="text-slide-textarea"
-              placeholder="Type your announcement, quote, or any text here..."
-              rows={6}
-              value={customTextContent}
-              onChange={(e) => setCustomTextContent(e.target.value)}
-              autoFocus
-            />
-          </div>
-
-          <div className="text-slide-modal-footer">
-            <button
-              className="btn btn-secondary"
-              onClick={() => setShowTextModal(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn btn-save-slide"
-              disabled={!customTextContent.trim()}
-              onClick={handleSaveTextSlide}
-              title="Save to reuse later"
-            >
-              <MdAdd size={18} /> Save for Later
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={!customTextContent.trim() || loading}
-              onClick={async () => {
-                try {
-                  setLoading(true);
-                  const info = await presentationApi.addTextSlide(
-                    customTextTitle.trim() || null,
-                    customTextContent.trim()
-                  );
-                  setPresentationInfo(info);
-                  setShowTextModal(false);
-                  setCustomTextTitle('');
-                  setCustomTextContent('');
-                  setEditingSavedSlideId(null);
-                } catch (err) {
-                  console.error('Failed to add text slide:', err);
-                  alert('Failed to add text slide');
-                } finally {
-                  setLoading(false);
-                }
-              }}
-            >
-              <MdPlayArrow size={20} /> Present Now
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
+    </div>
   );
 };
 

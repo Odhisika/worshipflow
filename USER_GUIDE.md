@@ -339,3 +339,8 @@ ESC      → Stop presentation
 
  Email: admin@church.com
 - Password: admin123
+
+
+run 
+
+LD_PRELOAD=/lib/x86_64-linux-gnu/libpthread.so.0 npx tauri dev

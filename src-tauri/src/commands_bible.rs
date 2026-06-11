@@ -1,3 +1,4 @@
+use crate::bible_importer;
 use crate::error::{AppError, AppResult};
 use crate::models::BibleVerse;
 use crate::repositories::bible::BibleRepository;
@@ -5,8 +6,10 @@ use crate::repositories::settings::SettingsRepository;
 use crate::AppState;
 use serde::Deserialize;
 use tauri::{Manager, State};
+use tauri_plugin_dialog::DialogExt;
 use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
 
 const ACTIVE_BIBLE_VERSION_KEY: &str = "active_bible_version";
 
@@ -252,4 +255,73 @@ pub async fn set_active_bible_version(
 ) -> AppResult<()> {
     let conn = state.db.lock().unwrap();
     SettingsRepository::set_key(&conn, ACTIVE_BIBLE_VERSION_KEY, &version)
+}
+
+#[tauri::command]
+pub async fn import_bible_from_user_file(
+    state: State<'_, AppState>,
+    path: String,
+) -> AppResult<(String, usize)> {
+    let file_path = Path::new(&path);
+    if !file_path.exists() {
+        return Err(AppError::Unknown(format!("File not found: {}", path)));
+    }
+
+    let (version_name, verses) = bible_importer::import_bible_file(file_path)?;
+
+    let conn = state.db.lock().unwrap();
+    BibleRepository::initialize_books(&conn)?;
+    let count = BibleRepository::bulk_import_verses(&conn, verses)?;
+
+    log::info!(
+        "Imported {} verses for version '{}' from {:?}",
+        count,
+        version_name,
+        file_path.file_name().unwrap_or_default()
+    );
+
+    Ok((version_name, count))
+}
+
+#[tauri::command]
+pub async fn delete_bible_version(
+    state: State<'_, AppState>,
+    version: String,
+) -> AppResult<usize> {
+    let conn = state.db.lock().unwrap();
+    let count = BibleRepository::delete_version(&conn, &version)?;
+    log::info!("Deleted {} verses for version '{}'", count, version);
+
+    // Clear the active version setting if it was the deleted version
+    if count > 0 {
+        if let Ok(Some(active)) = SettingsRepository::get_key(&conn, ACTIVE_BIBLE_VERSION_KEY) {
+            if active == version {
+                let _ = SettingsRepository::set_key(&conn, ACTIVE_BIBLE_VERSION_KEY, "");
+            }
+        }
+    }
+
+    Ok(count)
+}
+
+#[tauri::command]
+pub async fn get_bible_version_info(
+    state: State<'_, AppState>,
+) -> AppResult<Vec<(String, i64)>> {
+    let conn = state.db.lock().unwrap();
+    BibleRepository::get_version_stats(&conn)
+}
+
+#[tauri::command]
+pub async fn open_bible_file_dialog(app: tauri::AppHandle) -> AppResult<Option<String>> {
+    let path = app
+        .dialog()
+        .file()
+        .set_title("Select a Bible file to import")
+        .add_filter("Bible Files", &["xml", "osis", "json"])
+        .add_filter("XML Files (Zefania/OSIS)", &["xml", "osis"])
+        .add_filter("WorshipFlow JSON", &["json"])
+        .blocking_pick_file();
+
+    Ok(path.map(|p| p.to_string()))
 }

@@ -75,7 +75,6 @@ pub struct CreateActivityRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Slide {
     pub id: String,
-    #[serde(rename = "type")]
     pub slide_type: SlideType,
     pub title: Option<String>,
     pub content: String,
@@ -93,8 +92,10 @@ pub enum SlideType {
     Bible,
     Image,
     Video,
+    Audio,
     Announcement,
     Timer,
+    Capture,
 }
 
 impl ToString for SlideType {
@@ -105,13 +106,16 @@ impl ToString for SlideType {
             SlideType::Bible => "bible".to_string(),
             SlideType::Image => "image".to_string(),
             SlideType::Video => "video".to_string(),
+            SlideType::Audio => "audio".to_string(),
             SlideType::Announcement => "announcement".to_string(),
             SlideType::Timer => "timer".to_string(),
+            SlideType::Capture => "capture".to_string(),
         }
     }
 }
 
 impl SlideType {
+    #[expect(dead_code)]
     pub fn from_string(s: &str) -> Option<Self> {
         match s {
             "text" => Some(SlideType::Text),
@@ -119,8 +123,10 @@ impl SlideType {
             "bible" => Some(SlideType::Bible),
             "image" => Some(SlideType::Image),
             "video" => Some(SlideType::Video),
+            "audio" => Some(SlideType::Audio),
             "announcement" => Some(SlideType::Announcement),
             "timer" => Some(SlideType::Timer),
+            "capture" => Some(SlideType::Capture),
             _ => None,
         }
     }
@@ -138,10 +144,12 @@ pub struct TimerState {
 }
 
 impl TimerState {
+    #[expect(dead_code)]
     pub fn remaining_seconds(&self) -> i64 {
         (self.duration_seconds - self.elapsed_seconds).max(0)
     }
 
+    #[expect(dead_code)]
     pub fn overrun_seconds(&self) -> i64 {
         if self.is_overrun {
             self.elapsed_seconds - self.duration_seconds
@@ -152,6 +160,7 @@ impl TimerState {
 }
 
 // Service execution state
+#[expect(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceState {
     pub service_id: String,
@@ -173,6 +182,7 @@ pub struct BibleVerse {
 }
 
 // Display configuration
+#[expect(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayConfig {
     pub main_display_id: Option<String>,
@@ -181,6 +191,7 @@ pub struct DisplayConfig {
 }
 
 // Media item
+#[expect(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Media {
     pub id: String,
@@ -225,6 +236,18 @@ pub struct AdminUser {
 pub struct AdminLoginRequest {
     pub email: String,
     pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChangeEmailRequest {
+    pub password: String,
+    pub new_email: String,
 }
 // Church Members
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -372,6 +395,7 @@ pub struct Contribution {
     pub member_id: Option<String>,
     pub amount: f64,
     pub date: String,
+    pub payment_method: Option<String>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
     
@@ -388,6 +412,54 @@ pub struct CreateContributionRequest {
     pub member_id: Option<String>,
     pub amount: f64,
     pub date: String,
+    pub payment_method: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateContributionRequest {
+    pub type_id: Option<String>,
+    pub member_id: Option<String>,
+    pub amount: Option<f64>,
+    pub date: Option<String>,
+    pub payment_method: Option<String>,
+    pub notes: Option<String>,
+}
+
+// Finance - Pledges
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Pledge {
+    pub id: String,
+    pub member_id: String,
+    pub category: String,
+    pub amount_promised: f64,
+    pub amount_paid: f64,
+    pub due_date: Option<String>,
+    pub status: String,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    
+    // Joined fields
+    #[serde(skip_deserializing)]
+    pub member_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreatePledgeRequest {
+    pub member_id: String,
+    pub category: String,
+    pub amount_promised: f64,
+    pub due_date: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdatePledgeRequest {
+    pub amount_promised: Option<f64>,
+    pub amount_paid: Option<f64>,
+    pub due_date: Option<String>,
+    pub status: Option<String>,
     pub notes: Option<String>,
 }
 
@@ -405,6 +477,23 @@ pub struct MemberTitheSummary {
     pub member_name: String,
     pub total_amount: f64,
     pub month: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MonthlyGivingTrend {
+    pub month: String,
+    pub tithes: f64,
+    pub offerings: f64,
+    pub pledges: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct YearComparison {
+    pub current_year: String,
+    pub previous_year: String,
+    pub current_total: f64,
+    pub previous_total: f64,
+    pub change_pct: f64,
 }
 
 // Small Groups / Ministries
@@ -484,7 +573,17 @@ pub struct ServiceAttendanceSummary {
     pub service_title: String,
     pub service_date: String,
     pub total_present: i32,
+    pub total_absent: i32,
+    pub total_excused: i32,
     pub total_members: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemberAttendanceRecord {
+    pub member_id: String,
+    pub member_name: String,
+    pub status: Option<String>,
+    pub role: String,
 }
 
 // Events

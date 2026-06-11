@@ -84,20 +84,45 @@ const MediaPlayer: React.FC = () => {
 
     useEffect(() => {
         if (!currentVideo) { setResolvedVideoUrl(''); return; }
+        // While ffmpeg is converting, do NOT set any src — prevents the browser from
+        // showing its native loading spinner on a file it cannot decode.
+        if (preparingPlayback[currentVideo.path] && !playableFallbacks[currentVideo.path]) {
+            setResolvedVideoUrl('');
+            return;
+        }
         let cancelled = false;
         const path = playableFallbacks[currentVideo.path] ?? currentVideo.path;
         mediaApi.getMediaUrl(path).then(url => {
             if (!cancelled) {
-                termLog('info', 'video blob URL resolved:', { path, url });
+                termLog('info', 'video url resolved:', { path, url });
                 setResolvedVideoUrl(url);
             }
         });
         return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentVideo?.path, playableFallbacks[currentVideo?.path ?? '']]);
+    }, [currentVideo?.path, playableFallbacks[currentVideo?.path ?? ''], preparingPlayback[currentVideo?.path ?? '']]);
 
     const audioSrc = resolvedAudioUrl;
     const videoSrc = resolvedVideoUrl;
+
+    // ── Format probe — check BEFORE handing the file to the <video> element ──
+    // On Linux/WebKit, MP4 H.264 requires GStreamer plugins that are often absent.
+    // By probing first we avoid the browser silently buffering a file it can't play.
+    const checkVideoCanPlay = (filePath: string): boolean => {
+        const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+        const el = document.createElement('video');
+        const probes: Record<string, string> = {
+            webm : 'video/webm; codecs="vp8, vorbis"',
+            ogv  : 'video/ogg; codecs="theora"',
+            ogg  : 'video/ogg; codecs="theora"',
+            mp4  : 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+            mov  : 'video/mp4',
+        };
+        const mime = probes[ext];
+        if (!mime) return false;
+        const r = el.canPlayType(mime);
+        return r === 'probably' || r === 'maybe';
+    };
 
     const describeMediaError = (
         label: 'Audio' | 'Video',
@@ -459,8 +484,19 @@ const MediaPlayer: React.FC = () => {
     };
 
     const playVideo = (index: number) => {
-        if (index >= 0 && index < videoPlaylist.length) {
-            setCurrentVideoIndex(index);
+        if (index < 0 || index >= videoPlaylist.length) return;
+        const file = videoPlaylist[index];
+        setPlaybackError(null);
+        setCurrentVideoIndex(index);
+
+        // If the format is not natively supported AND we haven't converted it yet,
+        // start conversion immediately so the converting overlay appears right away
+        // rather than the browser's own blank loading spinner.
+        const alreadyConverted = !!playableFallbacks[file.path];
+        const alreadyConverting = !!preparingPlayback[file.path];
+        if (!alreadyConverted && !alreadyConverting && !checkVideoCanPlay(file.path)) {
+            termLog('info', 'Format not natively supported — starting proactive conversion', { path: file.path });
+            void convertAndRetry('video', file);
         }
     };
 
@@ -635,14 +671,35 @@ const MediaPlayer: React.FC = () => {
                                 <div
                                     className="netflix-player"
                                     onMouseMove={handleMouseMove}
-                                    onClick={() => toggleVideoPlay()}
+                                    onClick={() => !preparingPlayback[currentVideo.path] && toggleVideoPlay()}
                                 >
-                                    {/* No crossOrigin — local files don't support CORS */}
-                                    <video
-                                        ref={videoRef}
-                                        src={videoSrc}
-                                        className="fullscreen-video"
-                                    />
+                                    {/* Converting overlay — shown while ffmpeg transcodes the file */}
+                                    {preparingPlayback[currentVideo.path] ? (
+                                        <div className="converting-overlay">
+                                            <div className="converting-spinner" />
+                                            <h3>Preparing Video…</h3>
+                                            <p>
+                                                <strong>{currentVideo.name}</strong>
+                                            </p>
+                                            <p className="converting-detail">
+                                                {currentVideo.size_bytes > 0
+                                                    ? `${(currentVideo.size_bytes / 1024 / 1024).toFixed(0)} MB — `
+                                                    : ''}
+                                                Converting to a browser-compatible format.
+                                            </p>
+                                            <p className="converting-hint">
+                                                Large files can take several minutes.
+                                                The video will play automatically when ready.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <video
+                                            ref={videoRef}
+                                            src={videoSrc || undefined}
+                                            preload="none"
+                                            className="fullscreen-video"
+                                        />
+                                    )}
 
                                     <div className={`video-overlay ${showVideoControls ? 'visible' : ''}`}>
                                         <div className="overlay-top">

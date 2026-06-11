@@ -4,8 +4,9 @@ import { presentationApi } from '../api/presentation';
 import {
   MdMenuBook, MdSearch, MdCheckCircle,
   MdAutoAwesome, MdChevronLeft, MdChevronRight, MdHistory,
-  MdClose, MdOutlineLiveTv, MdArrowDropDown
+  MdClose, MdOutlineLiveTv, MdArrowDropDown, MdFormatSize, MdAdd
 } from 'react-icons/md';
+import BibleImportModal from './BibleImportModal';
 import './BibleBrowser.css';
 
 const VERSION_LABELS: Record<string, string> = {
@@ -53,6 +54,10 @@ const BibleBrowser: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [activeTab, setActiveTab] = useState<'books' | 'search' | 'recent'>('books');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [fontSize, setFontSize] = useState<number>(1.25); // Font size in rem
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Derived state
   const currentBook = useMemo(() => books.find(b => b.name === selectedBook), [books, selectedBook]);
@@ -158,6 +163,18 @@ const BibleBrowser: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleImportSuccess = async (version: string) => {
+    setShowImportModal(false);
+    const vers = await bibleApi.getVersions();
+    setVersions(vers);
+    setActiveVersion(version);
+    await bibleApi.setActiveVersion(version);
+    if (selectedBook && chapter) {
+      loadVerses(selectedBook, chapter, version);
+    }
+    showNotification(`Imported "${version}" and switched to it`);
   };
 
   const handleVersionChange = async (version: string) => {
@@ -288,6 +305,15 @@ const BibleBrowser: React.FC = () => {
               </div>
             )}
           </div>
+
+          <button
+            className="bim-add-version-btn"
+            onClick={() => setShowImportModal(true)}
+            title="Add a new Bible version"
+          >
+            <MdAdd size={18} />
+            <span>Add Version</span>
+          </button>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -299,37 +325,117 @@ const BibleBrowser: React.FC = () => {
       </div>
 
       <div className="bible-main-layout">
-        {/* SIDEBAR: Book Navigation */}
-        <aside className="book-sidebar glass-panel">
-          <div className="sidebar-header">
-            <MdMenuBook className="icon" />
-            <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Books of the Bible</span>
-          </div>
+        {/* UNIFIED SIDEBAR: Left Column */}
+        {!isSidebarCollapsed && (
+          <aside className="bible-sidebar glass-panel">
+            <div className="sidebar-tabs">
+              <button
+                className={`tab-btn ${activeTab === 'books' ? 'active' : ''}`}
+                onClick={() => setActiveTab('books')}
+                title="Books of the Bible"
+              >
+                <MdMenuBook size={18} />
+                <span>Books</span>
+              </button>
+              <button
+                className={`tab-btn ${activeTab === 'search' ? 'active' : ''}`}
+                onClick={() => setActiveTab('search')}
+                title="Search Scriptures"
+              >
+                <MdSearch size={18} />
+                <span>Search</span>
+              </button>
+              <button
+                className={`tab-btn ${activeTab === 'recent' ? 'active' : ''}`}
+                onClick={() => setActiveTab('recent')}
+                title="Recent Activity"
+              >
+                <MdHistory size={18} />
+                <span>Recent</span>
+              </button>
+            </div>
 
-          <div className="book-list-container">
-            {['OT', 'NT'].map(testament => (
-              <div key={testament} className="testament-group">
-                <div className="testament-label">{testament === 'OT' ? 'Old Testament' : 'New Testament'}</div>
-                {books.filter(b => b.testament === testament).map(book => (
-                  <button
-                    key={book.name}
-                    className={`book-item ${selectedBook === book.name ? 'active' : ''}`}
-                    onClick={() => { setSelectedBook(book.name); setChapter(1); }}
-                  >
-                    <span>{book.name}</span>
-                    <span className="book-item-chapters">{book.chapters} ch</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        </aside>
+            <div className="sidebar-tab-content">
+              {activeTab === 'books' && (
+                <div className="book-list-container">
+                  {['OT', 'NT'].map(testament => (
+                    <div key={testament} className="testament-group">
+                      <div className="testament-label">{testament === 'OT' ? 'Old Testament' : 'New Testament'}</div>
+                      {books.filter(b => b.testament === testament).map(book => (
+                        <button
+                          key={book.name}
+                          className={`book-item ${selectedBook === book.name ? 'active' : ''}`}
+                          onClick={() => { setSelectedBook(book.name); setChapter(1); }}
+                        >
+                          <span>{book.name}</span>
+                          <span className="book-item-chapters">{book.chapters} ch</span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'search' && (
+                <div className="search-container-tab">
+                  <div className="search-input-wrapper">
+                    <MdSearch className="search-icon" size={20} />
+                    <input
+                      type="text"
+                      className="search-box"
+                      placeholder="Search words or phrases..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    />
+                  </div>
+
+                  <div className="search-results-list">
+                    {isSearching ? (
+                      <div style={{ textAlign: 'center', padding: '1.5rem', opacity: 0.7 }}>Searching...</div>
+                    ) : searchResults.map(v => (
+                      <div key={v.id} className="result-card" onClick={() => jumpToVerse(v)}>
+                        <div className="result-ref">{v.book} {v.chapter}:{v.verse}</div>
+                        <div className="result-snippet">{v.text}</div>
+                      </div>
+                    ))}
+                    {!isSearching && searchQuery && searchResults.length === 0 && (
+                      <div style={{ textAlign: 'center', padding: '1.5rem', opacity: 0.5 }}>No matches found</div>
+                    )}
+                    {!searchQuery && (
+                      <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.4, fontSize: '0.85rem' }}>
+                        Type a scripture reference (e.g. Genesis 1:1) or words to search.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'recent' && (
+                <div className="recent-container-tab">
+                  <div className="recent-empty-state">
+                    <MdHistory size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                    <p>Your presentation history will appear here.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
 
         {/* CENTER: Reader Area */}
-        <main className="reader-area glass-panel">
+        <main className={`reader-area glass-panel ${isSidebarCollapsed ? 'expanded' : ''}`}>
           <div className="reader-controls border-bottom">
             <div className="controls-left">
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>
+              <button
+                className="sidebar-toggle-btn"
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {isSidebarCollapsed ? <MdChevronRight size={22} /> : <MdChevronLeft size={22} />}
+              </button>
+
+              <h2 className="chapter-title" style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
                 {selectedBook} {chapter}
               </h2>
 
@@ -342,7 +448,7 @@ const BibleBrowser: React.FC = () => {
                   <MdChevronRight size={20} />
                 </button>
 
-                {/* Verse jump dropdown (custom - avoids WebView overflow clipping) */}
+                {/* Verse jump dropdown */}
                 {verses.length > 0 && (
                   <button
                     ref={verseDropdownBtnRef}
@@ -356,30 +462,60 @@ const BibleBrowser: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div className="controls-right" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              {/* Font Size Adjuster */}
+              <div className="font-size-adjuster">
+                <MdFormatSize size={16} className="font-size-icon" />
+                <button
+                  className="font-size-btn"
+                  onClick={() => setFontSize(prev => Math.max(0.9, prev - 0.05))}
+                  title="Decrease font size"
+                >
+                  A-
+                </button>
+                <span className="font-size-val">{Math.round(fontSize * 100)}%</span>
+                <button
+                  className="font-size-btn"
+                  onClick={() => setFontSize(prev => Math.min(1.8, prev + 0.05))}
+                  title="Increase font size"
+                >
+                  A+
+                </button>
+              </div>
+
               <button className="btn-primary-elite" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
                 <MdOutlineLiveTv /> Present Chapter
               </button>
             </div>
           </div>
 
-          <div className="reader-content" ref={readerRef}>
+          <div
+            className="reader-content"
+            ref={readerRef}
+            style={{ fontSize: `${fontSize}rem` }}
+          >
             {isLoading ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
                 <div className="import-spinner" />
               </div>
             ) : verses.length > 0 ? (
-              verses.map(v => (
-                <div
-                  key={v.id}
-                  id={`bible-verse-${v.verse}`}
-                  className={`verse-block${selectedVerse === v.verse ? ' active' : ''}`}
-                  onClick={() => addToPresentation(v)}
-                >
-                  <span className="verse-num">{v.verse}</span>
-                  <div className="verse-body">{v.text}</div>
-                </div>
-              ))
+              <div className="verses-layout-container">
+                {verses.map(v => (
+                  <div
+                    key={v.id}
+                    id={`bible-verse-${v.verse}`}
+                    className={`verse-block${selectedVerse === v.verse ? ' active' : ''}`}
+                    onClick={() => addToPresentation(v)}
+                  >
+                    <span className="verse-num">{v.verse}</span>
+                    <div className="verse-body">{v.text}</div>
+                    <div className="verse-hover-action">
+                      <MdOutlineLiveTv size={16} />
+                      <span>Live</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div style={{ textAlign: 'center', opacity: 0.5, padding: '4rem' }}>
                 <MdAutoAwesome size={48} className={isBibleInitializing ? "spin" : ""} style={{ marginBottom: '1rem' }} />
@@ -389,47 +525,6 @@ const BibleBrowser: React.FC = () => {
             )}
           </div>
         </main>
-
-        {/* RIGHT: Search & Quick Actions */}
-        <aside className="action-panel">
-          <section className="search-container glass-panel">
-            <h3 style={{ fontSize: '0.9rem', margin: 0, fontWeight: 700 }}>Quick Search</h3>
-            <div className="search-input-wrapper">
-              <MdSearch className="search-icon" size={20} />
-              <input
-                type="text"
-                className="search-box"
-                placeholder="Search words or phrases..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              />
-            </div>
-
-            <div className="search-results-list">
-              {isSearching ? (
-                <div style={{ textAlign: 'center', padding: '1rem' }}>Searching...</div>
-              ) : searchResults.map(v => (
-                <div key={v.id} className="result-card" onClick={() => jumpToVerse(v)}>
-                  <div className="result-ref">{v.book} {v.chapter}:{v.verse}</div>
-                  <div className="result-snippet">{v.text}</div>
-                </div>
-              ))}
-              {!isSearching && searchQuery && searchResults.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '1rem', opacity: 0.5 }}>No matches found</div>
-              )}
-            </div>
-          </section>
-
-          <section className="glass-panel" style={{ padding: '1.5rem', flex: 1 }}>
-            <h3 style={{ fontSize: '0.9rem', margin: '0 0 1rem 0', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdHistory /> Recent Activity
-            </h3>
-            <div style={{ fontSize: '0.8rem', opacity: 0.5 }}>
-              Your presentation history will appear here.
-            </div>
-          </section>
-        </aside>
       </div>
 
       {/* Notifications */}
@@ -438,6 +533,14 @@ const BibleBrowser: React.FC = () => {
           {notification.msg}
           <MdClose style={{ cursor: 'pointer' }} onClick={() => setNotification(null)} />
         </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <BibleImportModal
+          onClose={() => setShowImportModal(false)}
+          onImported={handleImportSuccess}
+        />
       )}
 
       {/* Custom verse dropdown list — fixed position so it clears all overflow:hidden containers */}

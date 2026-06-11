@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { MdDashboard, MdMonitor, MdLibraryMusic, MdBook, MdEvent, MdCheckCircle, MdImage } from 'react-icons/md';
 import './App.css';
 import SongLibrary from './components/SongLibrary';
@@ -63,7 +64,7 @@ function App() {
                 onClick={() => setActiveView('presentation')}
               >
                 <span className="icon"><MdMonitor /></span>
-                Presentation
+                Live Console
               </Link>
             </li>
             <li>
@@ -133,6 +134,25 @@ function App() {
           </Routes>
         </main>
       </div>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: 'var(--bg-card, #1e293b)',
+            color: 'var(--text-primary, #f1f5f9)',
+            border: '1px solid var(--border-light, #334155)',
+            borderRadius: '10px',
+            fontSize: '0.9rem',
+          },
+          success: {
+            iconTheme: { primary: '#10b981', secondary: '#f1f5f9' },
+          },
+          error: {
+            iconTheme: { primary: '#ef4444', secondary: '#f1f5f9' },
+          },
+        }}
+      />
     </Router>
   );
 }

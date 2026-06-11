@@ -143,6 +143,27 @@ lazy_static::lazy_static! {
     pub static ref PRESENTATION: Mutex<PresentationState> = Mutex::new(PresentationState::new());
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PresentationInfo {
+    pub current_index: usize,
+    pub total_slides: usize,
+    pub is_live: bool,
+    pub is_blank: bool,
+    pub current_slide: Option<Slide>,
+    pub next_slide: Option<Slide>,
+}
+
+pub fn generate_presentation_info(presentation: &PresentationState) -> PresentationInfo {
+    PresentationInfo {
+        current_index: presentation.current_index,
+        total_slides: presentation.slides.len(),
+        is_live: presentation.is_live,
+        is_blank: presentation.is_blank,
+        current_slide: presentation.get_current_slide().cloned(),
+        next_slide: presentation.get_next_slide().cloned(),
+    }
+}
+
 // Helper functions for slide generation
 pub fn generate_song_slides(lyrics: &str, title: &str) -> Vec<Slide> {
     let mut slides = Vec::new();

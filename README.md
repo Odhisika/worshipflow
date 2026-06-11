@@ -37,6 +37,42 @@ npm run tauri dev
 
 ---
 
+## 🔧 External Dependencies
+
+Some features require additional system tools:
+
+### Media Playback
+**FFmpeg** is required for converting audio/video files to browser-compatible formats:
+```bash
+# Linux (Debian/Ubuntu)
+sudo apt install ffmpeg
+
+# macOS
+brew install ffmpeg
+
+# Windows
+choco install ffmpeg
+```
+
+### Window Capture
+To capture an external application window (e.g., a desktop Bible app) and display it on the presentation screen, install one of these tools:
+
+| Tool | Platform | Install |
+|------|----------|---------|
+| `import` (ImageMagick) | X11 | `sudo apt install imagemagick` |
+| `grim` | Wayland | `sudo apt install grim` |
+| `maim` | X11 | `sudo apt install maim` |
+| `scrot` | X11 | `sudo apt install scrot` |
+
+**Window listing** also requires `wmctrl`:
+```bash
+sudo apt install wmctrl
+```
+
+> **Note:** The **Web Bible** feature (`present_bible_web`) works on all platforms without any external dependencies — it displays Bible websites (BibleGateway, Bible.com, etc.) directly on the output screen.
+
+---
+
 ## ✨ What You Can Do Right Now
 
 ### 📚 Song Management

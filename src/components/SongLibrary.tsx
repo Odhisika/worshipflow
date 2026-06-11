@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { songApi, Song, CreateSongRequest } from '../api';
 import { presentationApi } from '../api/presentation';
-import { MdLibraryMusic, MdAdd, MdDownload, MdClose } from 'react-icons/md';
+import { MdLibraryMusic, MdAdd, MdDownload, MdClose, MdPlayArrow } from 'react-icons/md';
 import './SongLibrary.css';
 
 const SongLibrary: React.FC = () => {
@@ -162,10 +162,11 @@ const SongLibrary: React.FC = () => {
               <div className="song-actions">
                 <button
                   className="btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                   onClick={() => handleLoadToPresentation(song)}
                   title="Load to Presentation"
                 >
-                  �� Present
+                  <MdPlayArrow size={14} /> Present
                 </button>
                 <button
                   className="btn-secondary btn-sm"

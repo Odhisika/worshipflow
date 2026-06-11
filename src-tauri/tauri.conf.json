@@ -11,8 +11,12 @@
     "active": true,
     "targets": "all",
     "identifier": "com.worshipflow.pro",
+    "icon": ["../icons/icon.ico"],
     "resources": [
-      "resources/kjv_bible.json"
+      "resources/kjv_bible.json",
+      "resources/web_bible.json",
+      "resources/asv_bible.json",
+      "resources/ylt_bible.json"
     ]
   },
   "app": {

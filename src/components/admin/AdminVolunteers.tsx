@@ -3,9 +3,11 @@ import { MdAdd, MdFormatListBulleted, MdCheckCircle, MdPending, MdCancel, MdPers
 import { volunteersApi, VolunteerRole, VolunteerAssignment } from '../../api/volunteers';
 import { serviceApi, Service } from '../../api/services';
 import { memberApi, Member } from '../../api/members';
+import { useDataRefresh } from '../../context/DataRefreshContext';
 import './AdminViews.css';
 
 const AdminVolunteers: React.FC = () => {
+    const { refreshSignal, triggerRefresh } = useDataRefresh();
     const [roles, setRoles] = useState<VolunteerRole[]>([]);
     const [services, setServices] = useState<Service[]>([]);
     const [selectedServiceId, setSelectedServiceId] = useState<string>('');
@@ -24,7 +26,7 @@ const AdminVolunteers: React.FC = () => {
 
     useEffect(() => {
         loadInitialData();
-    }, []);
+    }, [refreshSignal]);
 
     useEffect(() => {
         if (selectedServiceId) {
@@ -66,7 +68,7 @@ const AdminVolunteers: React.FC = () => {
         try {
             await volunteersApi.assignVolunteer(selectedRoleId, memberId, selectedServiceId);
             setShowAssignModal(false);
-            loadAssignments(selectedServiceId);
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to assign volunteer:', error);
         }
@@ -81,8 +83,7 @@ const AdminVolunteers: React.FC = () => {
             );
             setShowRoleModal(false);
             setRoleFormData({ name: '', description: '', required_count: 1 });
-            const roleData = await volunteersApi.getVolunteerRoles();
-            setRoles(roleData);
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to create role:', error);
         }

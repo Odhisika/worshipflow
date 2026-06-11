@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import AppDatePicker from '../../components/AppDatePicker';
 import { MdAdd, MdCalendarMonth, MdLocationOn, MdAccessTime, MdCategory, MdEdit, MdDelete, MdSearch } from 'react-icons/md';
 import { eventsApi, Event, CreateEventRequest } from '../../api/events';
+import { useDataRefresh } from '../../context/DataRefreshContext';
 import './AdminViews.css';
 
 const AdminEvents: React.FC = () => {
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
+    const { refreshSignal, triggerRefresh } = useDataRefresh();
     const [searchQuery, setSearchQuery] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -20,7 +23,7 @@ const AdminEvents: React.FC = () => {
 
     useEffect(() => {
         loadEvents();
-    }, []);
+    }, [refreshSignal]);
 
     const loadEvents = async () => {
         try {
@@ -42,7 +45,7 @@ const AdminEvents: React.FC = () => {
             }
             setShowModal(false);
             resetForm();
-            loadEvents();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to save event:', error);
         }
@@ -52,7 +55,7 @@ const AdminEvents: React.FC = () => {
         if (!window.confirm('Are you sure you want to delete this event?')) return;
         try {
             await eventsApi.deleteEvent(id);
-            loadEvents();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to delete event:', error);
         }
@@ -215,12 +218,9 @@ const AdminEvents: React.FC = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
                             <div className="form-group">
                                 <label>Date</label>
-                                <input
-                                    type="date"
-                                    className="form-control"
-                                    value={formData.date}
-                                    onChange={e => setFormData({ ...formData, date: e.target.value })}
-                                />
+                                <AppDatePicker value={formData.date}
+                                    onChange={(d) => setFormData({ ...formData, date: d })}
+                                    required className="form-control" />
                             </div>
                             <div className="form-group">
                                 <label>Time (Optional)</label>

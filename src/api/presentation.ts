@@ -51,6 +51,9 @@ export const presentationApi = {
   getState: (): Promise<PresentationInfo> =>
     invoke('get_presentation_state'),
   
+  getSlides: (): Promise<Slide[]> =>
+    invoke('get_presentation_slides'),
+  
   // Management
   removeSlide: (index: number): Promise<PresentationInfo> =>
     invoke('remove_slide_from_presentation', { index }),
@@ -61,4 +64,34 @@ export const presentationApi = {
   // Background
   setBackground: (background: string | null): Promise<PresentationInfo> =>
     invoke('set_presentation_background', { background }),
+
+  // Media Presentation
+  presentImage: (filePath: string, title?: string): Promise<void> =>
+    invoke('present_image_slide', { filePath, title }),
+
+  presentVideo: (filePath: string): Promise<void> =>
+    invoke('present_video_slide', { filePath }),
+
+  presentAudio: (filePath: string): Promise<void> =>
+    invoke('present_audio_slide', { filePath }),
+
+  // Window Capture
+  listCapturableWindows: (): Promise<Array<{ id: string; title: string; app_name: string }>> =>
+    invoke('list_capturable_windows'),
+
+  startWindowCapture: (windowId: string, windowTitle: string): Promise<string> =>
+    invoke('start_window_capture', { windowId, windowTitle }),
+
+  stopWindowCapture: (): Promise<{ is_capturing: boolean; window_title: string; current_frame_path: string | null }> =>
+    invoke('stop_window_capture'),
+
+  getCaptureState: (): Promise<{ is_capturing: boolean; window_title: string; current_frame_path: string | null }> =>
+    invoke('get_capture_state'),
+
+  presentWindowCapture: (): Promise<void> =>
+    invoke('present_window_capture_slide'),
+
+  // Bible Web Presentation
+  presentBibleWeb: (url: string): Promise<{ url: string; title: string }> =>
+    invoke('present_bible_web', { url }),
 };

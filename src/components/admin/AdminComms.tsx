@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { MdEmail, MdSms, MdCampaign, MdDelete, MdSend, MdSchedule } from 'react-icons/md';
+import { useDataRefresh } from '../../context/DataRefreshContext';
 import { communicationsApi, Campaign, SubscriberStats, CreateCampaignRequest } from '../../api/communications';
 import './AdminViews.css';
 
 const AdminComms: React.FC = () => {
+    const { refreshSignal, triggerRefresh } = useDataRefresh();
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [stats, setStats] = useState<SubscriberStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -17,7 +19,7 @@ const AdminComms: React.FC = () => {
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [refreshSignal]);
 
     const loadData = async () => {
         try {
@@ -42,7 +44,7 @@ const AdminComms: React.FC = () => {
             });
             setShowModal(false);
             setFormData({ name: '', campaign_type: 'Email', content: '', scheduled_at: '' });
-            loadData();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to create campaign:', error);
         }
@@ -52,7 +54,7 @@ const AdminComms: React.FC = () => {
         if (!window.confirm('Delete this campaign?')) return;
         try {
             await communicationsApi.deleteCampaign(id);
-            loadData();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to delete campaign:', error);
         }

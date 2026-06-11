@@ -298,9 +298,36 @@ fn create_tables(conn: &Connection) -> Result<()> {
             member_id TEXT,
             amount REAL NOT NULL,
             date TEXT NOT NULL,
+            payment_method TEXT DEFAULT 'Cash',
             notes TEXT,
             created_at TEXT NOT NULL,
             FOREIGN KEY (type_id) REFERENCES giving_types(id),
+            FOREIGN KEY (member_id) REFERENCES members(id)
+        )",
+        [],
+    )?;
+
+    // Migration: add payment_method column if missing
+    let check_pm = "SELECT COUNT(*) FROM pragma_table_info('contributions') WHERE name='payment_method'";
+    let pm_count: i32 = conn.query_row(check_pm, [], |row| row.get(0)).unwrap_or(0);
+    if pm_count == 0 {
+        conn.execute("ALTER TABLE contributions ADD COLUMN payment_method TEXT DEFAULT 'Cash'", [])?;
+        log::info!("Added payment_method column to contributions table");
+    }
+
+    // Finance - Pledges
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS pledges (
+            id TEXT PRIMARY KEY,
+            member_id TEXT NOT NULL,
+            category TEXT NOT NULL,
+            amount_promised REAL NOT NULL,
+            amount_paid REAL NOT NULL DEFAULT 0,
+            due_date TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
             FOREIGN KEY (member_id) REFERENCES members(id)
         )",
         [],

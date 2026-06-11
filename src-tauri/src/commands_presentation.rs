@@ -1,21 +1,13 @@
 use crate::error::AppResult;
 use crate::models::Slide;
-use crate::presentation::{PRESENTATION, generate_song_slides, generate_bible_slide, generate_text_slide};
+use crate::presentation::{
+    PRESENTATION, generate_presentation_info, generate_song_slides, generate_bible_slide, generate_text_slide,
+    PresentationInfo,
+};
 
 use crate::repositories::SongRepository;
 use crate::AppState;
-use serde::{Deserialize, Serialize};
 use tauri::{Emitter, State, Manager};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PresentationInfo {
-    pub current_index: usize,
-    pub total_slides: usize,
-    pub is_live: bool,
-    pub is_blank: bool,
-    pub current_slide: Option<Slide>,
-    pub next_slide: Option<Slide>,
-}
 
 // Load song into presentation
 #[tauri::command]
@@ -32,7 +24,7 @@ pub async fn load_song_to_presentation(
 
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.load_slides(slides);
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
 
     app.emit("slide-changed", &info).ok();
@@ -49,7 +41,7 @@ pub async fn add_slides_to_presentation(
     for slide in slides {
         presentation.add_slide(slide);
     }
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
 
     app.emit("slide-changed", &info).ok();
@@ -67,7 +59,7 @@ pub async fn add_text_slide(
 
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.add_slide_and_goto(slide);
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
 
     app.emit("slide-changed", &info).ok();
@@ -87,7 +79,7 @@ pub async fn add_bible_slide(
 
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.add_slide_and_goto(slide);
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
 
     app.emit("slide-changed", &info).ok();
@@ -99,7 +91,7 @@ pub async fn add_bible_slide(
 pub async fn next_slide(app: tauri::AppHandle) -> AppResult<PresentationInfo> {
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.next_slide()?;
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
     
     // Emit event to output window
@@ -112,7 +104,7 @@ pub async fn next_slide(app: tauri::AppHandle) -> AppResult<PresentationInfo> {
 pub async fn previous_slide(app: tauri::AppHandle) -> AppResult<PresentationInfo> {
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.previous_slide()?;
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
     
     // Emit event to output window
@@ -125,7 +117,7 @@ pub async fn previous_slide(app: tauri::AppHandle) -> AppResult<PresentationInfo
 pub async fn goto_slide(app: tauri::AppHandle, index: usize) -> AppResult<PresentationInfo> {
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.goto_slide(index)?;
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
     
     // Emit event to output window
@@ -138,7 +130,7 @@ pub async fn goto_slide(app: tauri::AppHandle, index: usize) -> AppResult<Presen
 pub async fn toggle_blank(app: tauri::AppHandle) -> AppResult<PresentationInfo> {
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.toggle_blank();
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
     
     // Emit event to output window
@@ -151,7 +143,7 @@ pub async fn toggle_blank(app: tauri::AppHandle) -> AppResult<PresentationInfo> 
 pub async fn start_presentation(app: tauri::AppHandle) -> AppResult<PresentationInfo> {
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.start_presentation();
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
 
     app.emit("presentation-started", &info).ok();
@@ -165,7 +157,7 @@ pub async fn start_presentation(app: tauri::AppHandle) -> AppResult<Presentation
 pub async fn stop_presentation(app: tauri::AppHandle) -> AppResult<PresentationInfo> {
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.stop_presentation();
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
     
     // Emit event to output window
@@ -178,7 +170,7 @@ pub async fn stop_presentation(app: tauri::AppHandle) -> AppResult<PresentationI
 pub async fn clear_presentation(app: tauri::AppHandle) -> AppResult<PresentationInfo> {
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.clear_slides();
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
 
     app.emit("slide-changed", &info).ok();
@@ -188,7 +180,7 @@ pub async fn clear_presentation(app: tauri::AppHandle) -> AppResult<Presentation
 #[tauri::command]
 pub async fn get_presentation_state() -> AppResult<PresentationInfo> {
     let presentation = PRESENTATION.lock().unwrap();
-    Ok(get_presentation_info(&presentation))
+    Ok(generate_presentation_info(&presentation))
 }
 
 #[tauri::command]
@@ -198,7 +190,7 @@ pub async fn remove_slide_from_presentation(
 ) -> AppResult<PresentationInfo> {
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.remove_slide(index)?;
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
 
     app.emit("slide-changed", &info).ok();
@@ -213,24 +205,14 @@ pub async fn reorder_presentation_slides(
 ) -> AppResult<PresentationInfo> {
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.reorder_slides(from, to)?;
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
 
     app.emit("slide-changed", &info).ok();
     Ok(info)
 }
 
-// Helper function
-fn get_presentation_info(presentation: &crate::presentation::PresentationState) -> PresentationInfo {
-    PresentationInfo {
-        current_index: presentation.current_index,
-        total_slides: presentation.slides.len(),
-        is_live: presentation.is_live,
-        is_blank: presentation.is_blank,
-        current_slide: presentation.get_current_slide().cloned(),
-        next_slide: presentation.get_next_slide().cloned(),
-    }
-}
+
 
 // Open the presentation output window on the best available monitor
 #[tauri::command]
@@ -243,7 +225,7 @@ pub async fn open_presentation_window(app: tauri::AppHandle) -> Result<(), Strin
         // Push current state directly to the output window so it doesn't rely on a stale loadState
         let info = {
             let presentation = PRESENTATION.lock().unwrap();
-            get_presentation_info(&presentation)
+            generate_presentation_info(&presentation)
         };
         app.emit("slide-changed", &info).ok();
         return Ok(());
@@ -293,11 +275,11 @@ pub async fn open_presentation_window(app: tauri::AppHandle) -> Result<(), Strin
     Ok(())
 }
 
-// Close / hide the presentation output window
+// Close / destroy the presentation output window
 #[tauri::command]
 pub async fn close_presentation_window(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("output") {
-        win.hide().map_err(|e| e.to_string())?;
+        win.close().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -340,7 +322,7 @@ pub async fn set_presentation_background(
     for slide in presentation.slides.iter_mut() {
         slide.background_path = background.clone();
     }
-    let info = get_presentation_info(&presentation);
+    let info = generate_presentation_info(&presentation);
     drop(presentation);
 
     // Push update to output window if live
@@ -348,3 +330,11 @@ pub async fn set_presentation_background(
 
     Ok(info)
 }
+
+// Get all slides in the current presentation
+#[tauri::command]
+pub async fn get_presentation_slides() -> AppResult<Vec<Slide>> {
+    let presentation = PRESENTATION.lock().unwrap();
+    Ok(presentation.slides.clone())
+}
+

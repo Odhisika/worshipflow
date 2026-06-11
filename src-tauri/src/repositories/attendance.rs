@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppResult};
-use crate::models::{AttendanceRecord, MarkAttendanceRequest, ServiceAttendanceSummary};
+use crate::models::{AttendanceRecord, MarkAttendanceRequest, MemberAttendanceRecord, ServiceAttendanceSummary};
 use rusqlite::{params, Connection};
 use chrono::Utc;
 use uuid::Uuid;
@@ -16,16 +16,9 @@ impl AttendanceRepository {
              VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(service_id, member_id) DO UPDATE SET
              status = excluded.status",
-            params![
-                &id,
-                &request.service_id,
-                &request.member_id,
-                &request.status,
-                &now.to_rfc3339(),
-            ],
+            params![&id, &request.service_id, &request.member_id, &request.status, &now.to_rfc3339()],
         )?;
 
-        // Return the record (simplified fetching back)
         Ok(AttendanceRecord {
             id,
             service_id: request.service_id,
@@ -38,7 +31,7 @@ impl AttendanceRepository {
 
     pub fn get_service_attendance(conn: &Connection, service_id: &str) -> AppResult<Vec<AttendanceRecord>> {
         let mut stmt = conn.prepare(
-            "SELECT a.id, a.service_id, a.member_id, a.status, a.created_at, 
+            "SELECT a.id, a.service_id, a.member_id, a.status, a.created_at,
                     m.first_name || ' ' || m.last_name as member_name
              FROM attendance a
              JOIN members m ON a.member_id = m.id
@@ -47,17 +40,34 @@ impl AttendanceRepository {
 
         let records = stmt.query_map([service_id], |row| {
             Ok(AttendanceRecord {
-                id: row.get(0)?,
-                service_id: row.get(1)?,
-                member_id: row.get(2)?,
+                id: row.get(0)?, service_id: row.get(1)?, member_id: row.get(2)?,
                 status: row.get(3)?,
                 created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(4)?)
-                    .unwrap_or_else(|_| Utc::now().into())
-                    .with_timezone(&Utc),
+                    .unwrap_or_else(|_| Utc::now().into()).with_timezone(&Utc),
                 member_name: Some(row.get(5)?),
             })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        })?.collect::<Result<Vec<_>, _>>()?;
+
+        Ok(records)
+    }
+
+    pub fn get_all_member_attendance_for_service(conn: &Connection, service_id: &str) -> AppResult<Vec<MemberAttendanceRecord>> {
+        let mut stmt = conn.prepare(
+            "SELECT m.id, m.first_name || ' ' || m.last_name as member_name, a.status, m.role
+             FROM members m
+             LEFT JOIN attendance a ON a.member_id = m.id AND a.service_id = ?1
+             WHERE m.status = 'active'
+             ORDER BY m.first_name ASC"
+        )?;
+
+        let records = stmt.query_map([service_id], |row| {
+            Ok(MemberAttendanceRecord {
+                member_id: row.get(0)?,
+                member_name: row.get(1)?,
+                status: row.get(2)?,
+                role: row.get(3)?,
+            })
+        })?.collect::<Result<Vec<_>, _>>()?;
 
         Ok(records)
     }
@@ -65,8 +75,10 @@ impl AttendanceRepository {
     pub fn get_attendance_summary(conn: &Connection, service_id: &str) -> AppResult<ServiceAttendanceSummary> {
         let mut stmt = conn.prepare(
             "SELECT s.id, s.title, s.date,
-                    (SELECT COUNT(*) FROM attendance WHERE service_id = s.id AND status = 'present') as total_present,
-                    (SELECT COUNT(*) FROM members WHERE status = 'active') as total_members
+                    (SELECT COUNT(*) FROM attendance WHERE service_id = s.id AND status = 'present') as present,
+                    (SELECT COUNT(*) FROM attendance WHERE service_id = s.id AND status = 'absent') as absent,
+                    (SELECT COUNT(*) FROM attendance WHERE service_id = s.id AND status = 'excused') as excused,
+                    (SELECT COUNT(*) FROM members WHERE status = 'active') as total
              FROM services s
              WHERE s.id = ?1"
         )?;
@@ -77,7 +89,9 @@ impl AttendanceRepository {
                 service_title: row.get(1)?,
                 service_date: row.get(2)?,
                 total_present: row.get(3)?,
-                total_members: row.get(4)?,
+                total_absent: row.get(4)?,
+                total_excused: row.get(5)?,
+                total_members: row.get(6)?,
             })
         }).map_err(|_| AppError::NotFound(format!("Service with id {} not found", service_id)))?;
 

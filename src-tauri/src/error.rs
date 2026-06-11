@@ -17,9 +17,11 @@ pub enum AppError {
     #[error("Invalid input: {0}")]
     InvalidInput(String),
     
+    #[expect(dead_code)]
     #[error("Timer error: {0}")]
     Timer(String),
     
+    #[expect(dead_code)]
     #[error("Display error: {0}")]
     Display(String),
     

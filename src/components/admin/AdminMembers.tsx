@@ -1,19 +1,30 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import toast from 'react-hot-toast';
 import {
     MdSearch, MdMoreVert, MdMail, MdPhone,
-    MdDelete, MdPersonAdd, MdBlock, MdCheckCircle, MdEdit
+    MdDelete, MdPersonAdd, MdBlock, MdCheckCircle, MdEdit, MdFileDownload
 } from 'react-icons/md';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import AppDatePicker from '../../components/AppDatePicker';
 import { memberApi, Member, MemberRole } from '../../api/members';
+import { saveFileWithDialog } from '../../api/export';
+import { useDataRefresh } from '../../context/DataRefreshContext';
+import ConfirmModal from './ConfirmModal';
 import './AdminViews.css';
 
 const AdminMembers: React.FC = () => {
     const [members, setMembers] = useState<Member[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const { refreshSignal, triggerRefresh } = useDataRefresh();
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedMember, setSelectedMember] = useState<Member | null>(null);
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+    const [confirmSuspend, setConfirmSuspend] = useState<Member | null>(null);
 
     // Form state for Add/Edit
     const [formData, setFormData] = useState({
@@ -39,6 +50,7 @@ const AdminMembers: React.FC = () => {
             setMembers(data);
         } catch (error) {
             console.error('Failed to fetch members:', error);
+            toast.error('Failed to load members directory.');
         } finally {
             setLoading(false);
         }
@@ -46,7 +58,7 @@ const AdminMembers: React.FC = () => {
 
     useEffect(() => {
         fetchMembers();
-    }, []);
+    }, [refreshSignal]);
 
     const filteredMembers = useMemo(() => {
         if (!searchTerm) return members;
@@ -74,11 +86,13 @@ const AdminMembers: React.FC = () => {
                 marital_status: formData.marital_status || undefined,
                 emergency_contact: formData.emergency_contact || undefined,
             });
+            toast.success(`${formData.first_name} ${formData.last_name} has been registered successfully.`);
             setShowAddModal(false);
             resetForm();
-            fetchMembers();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to add member:', error);
+            toast.error('Failed to register member. Please try again.');
         }
     };
 
@@ -98,32 +112,37 @@ const AdminMembers: React.FC = () => {
                 marital_status: formData.marital_status || undefined,
                 emergency_contact: formData.emergency_contact || undefined,
             });
+            toast.success('Member profile updated successfully.');
             setShowEditModal(false);
             resetForm();
-            fetchMembers();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to update member:', error);
+            toast.error('Failed to update member. Please try again.');
         }
     };
 
     const handleDeleteMember = async (id: string) => {
-        if (window.confirm('Are you sure you want to delete this member?')) {
-            try {
-                await memberApi.deleteMember(id);
-                fetchMembers();
-            } catch (error) {
-                console.error('Failed to delete member:', error);
-            }
+        try {
+            await memberApi.deleteMember(id);
+            toast.success('Member has been removed from the directory.');
+            setConfirmDelete(null);
+            triggerRefresh();
+        } catch (error) {
+            console.error('Failed to delete member:', error);
+            toast.error('Failed to delete member. Please try again.');
         }
     };
 
     const handlePromote = async (id: string, role: MemberRole) => {
         try {
             await memberApi.promoteMember(id, role);
+            toast.success(`Member promoted to ${role.replace('_', ' ')}.`);
             setActiveMenuId(null);
-            fetchMembers();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to promote member:', error);
+            toast.error('Failed to promote member. Please try again.');
         }
     };
 
@@ -131,13 +150,17 @@ const AdminMembers: React.FC = () => {
         try {
             if (member.status === 'active') {
                 await memberApi.suspendMember(member.id);
+                toast.success('Member has been suspended.');
             } else {
                 await memberApi.activateMember(member.id);
+                toast.success('Member has been reactivated.');
             }
+            setConfirmSuspend(null);
             setActiveMenuId(null);
-            fetchMembers();
+            triggerRefresh();
         } catch (error) {
             console.error('Failed to toggle status:', error);
+            toast.error('Failed to update member status. Please try again.');
         }
     };
 
@@ -181,6 +204,84 @@ const AdminMembers: React.FC = () => {
         setActiveMenuId(null);
     };
 
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    const handleSearch = () => {
+        if (searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+    };
+
+    const handleExportExcel = async () => {
+        if (members.length === 0) {
+            toast.error('No members to export.');
+            return;
+        }
+        try {
+            const data = members.map(m => ({
+                'First Name': m.first_name,
+                'Last Name': m.last_name,
+                'Email': m.email || '',
+                'Phone': m.phone || '',
+                'Gender': m.gender || '',
+                'Date of Birth': m.dob || '',
+                'Hometown': m.hometown || '',
+                'Occupation': m.occupation || '',
+                'Marital Status': m.marital_status || '',
+                'Role': m.role.replace('_', ' '),
+                'Status': m.status,
+                'Is Baptized': m.is_baptized ? 'Yes' : 'No',
+                'Address': m.address || '',
+                'Emergency Contact': m.emergency_contact || '',
+                'Joined': m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '',
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Members');
+            const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            await saveFileWithDialog('members_directory.xlsx', blob);
+            toast.success('Members exported to Excel successfully.');
+        } catch (error) {
+            console.error('Export failed:', error);
+            toast.error('Failed to export members to Excel.');
+        }
+    };
+
+    const handleExportPDF = async () => {
+        if (members.length === 0) {
+            toast.error('No members to export.');
+            return;
+        }
+        try {
+            const doc = new jsPDF();
+            doc.setFontSize(16);
+            doc.text('Membership Directory', 14, 20);
+            doc.setFontSize(10);
+            doc.text(`Exported: ${new Date().toLocaleDateString()}`, 14, 28);
+            const tableData = members.map(m => [
+                `${m.first_name} ${m.last_name}`,
+                m.email || '-',
+                m.phone || '-',
+                m.role.replace('_', ' '),
+                m.status,
+            ]);
+            autoTable(doc, {
+                head: [['Name', 'Email', 'Phone', 'Role', 'Status']],
+                body: tableData,
+                startY: 35,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [26, 115, 232] },
+            });
+            const blob = doc.output('blob');
+            await saveFileWithDialog('members_directory.pdf', blob);
+            toast.success('Members exported to PDF successfully.');
+        } catch (error) {
+            console.error('Export failed:', error);
+            toast.error('Failed to export members to PDF.');
+        }
+    };
+
     const stats = useMemo(() => {
         const total = members.length;
         const active = members.filter(m => m.status === 'active').length;
@@ -197,14 +298,23 @@ const AdminMembers: React.FC = () => {
                 </div>
                 <div className="admin-controls">
                     <div className="search-bar">
-                        <MdSearch className="admin-search-icon" size={20} />
+                        <button type="button" onClick={handleSearch} style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer' }}>
+                            <MdSearch className="admin-search-icon" size={20} />
+                        </button>
                         <input
+                            ref={searchInputRef}
                             type="text"
                             placeholder="Search members..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+                    <button className="btn-outline-small" onClick={handleExportExcel}>
+                        <MdFileDownload size={18} /> Excel
+                    </button>
+                    <button className="btn-outline-small" onClick={handleExportPDF}>
+                        <MdFileDownload size={18} /> PDF
+                    </button>
                     <button className="btn-primary" onClick={() => setShowAddModal(true)}>
                         <MdPersonAdd size={20} /> Add Member
                     </button>
@@ -332,14 +442,14 @@ const AdminMembers: React.FC = () => {
                                             <button
                                                 className="btn-text"
                                                 style={{ textAlign: 'left', padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px', color: member.status === 'active' ? 'var(--accent-orange)' : 'var(--accent-green)' }}
-                                                onClick={() => handleToggleStatus(member)}
+                                                onClick={() => { setActiveMenuId(null); setConfirmSuspend(member); }}
                                             >
                                                 {member.status === 'active' ? <><MdBlock size={16} /> Suspend</> : <><MdCheckCircle size={16} /> Activate</>}
                                             </button>
                                             <button
                                                 className="btn-text"
                                                 style={{ textAlign: 'left', padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-red)' }}
-                                                onClick={() => handleDeleteMember(member.id)}
+                                                onClick={() => { setActiveMenuId(null); setConfirmDelete(member.id); }}
                                             >
                                                 <MdDelete size={16} /> Delete Member
                                             </button>
@@ -361,27 +471,29 @@ const AdminMembers: React.FC = () => {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>First Name</label>
-                                    <input required placeholder="John" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} />
+                                    <input required placeholder="e.g. Kojo" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} />
                                 </div>
                                 <div className="form-group">
                                     <label>Last Name</label>
-                                    <input required placeholder="Doe" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} />
+                                    <input required placeholder="e.g. Mensah" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} />
                                 </div>
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Email Address</label>
-                                    <input type="email" placeholder="john.doe@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                    <input type="email" placeholder="e.g. kojo.mensah@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                                 </div>
                                 <div className="form-group">
                                     <label>Phone Number</label>
-                                    <input placeholder="(555) 000-0000" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                                    <input placeholder="e.g. (024) 000-0000" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
                                 </div>
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Date of Birth</label>
-                                    <input type="date" value={formData.dob} onChange={e => setFormData({ ...formData, dob: e.target.value })} />
+                                    <AppDatePicker value={formData.dob}
+                                        onChange={(d) => setFormData({ ...formData, dob: d })}
+                                        placeholderText="Select date of birth" className="form-input" />
                                 </div>
                                 <div className="form-group">
                                     <label>Gender</label>
@@ -396,7 +508,7 @@ const AdminMembers: React.FC = () => {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Hometown</label>
-                                    <input placeholder="City, Country" value={formData.hometown} onChange={e => setFormData({ ...formData, hometown: e.target.value })} />
+                                    <input placeholder="e.g. Kumasi" value={formData.hometown} onChange={e => setFormData({ ...formData, hometown: e.target.value })} />
                                 </div>
                                 <div className="form-group">
                                     <label>Occupation</label>
@@ -427,11 +539,11 @@ const AdminMembers: React.FC = () => {
                             </div>
                             <div className="form-group">
                                 <label>Residential Address</label>
-                                <input placeholder="123 Church St, City" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                                <input placeholder="e.g. 12 Independence Ave, Accra" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                             </div>
                             <div className="form-group">
                                 <label>Emergency Contact (Name & Phone)</label>
-                                <input placeholder="Jane Doe - (555) 111-2222" value={formData.emergency_contact} onChange={e => setFormData({ ...formData, emergency_contact: e.target.value })} />
+                                <input placeholder="e.g. Akua Mensah - (024) 111-2222" value={formData.emergency_contact} onChange={e => setFormData({ ...formData, emergency_contact: e.target.value })} />
                             </div>
                             <div className="form-group">
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -449,6 +561,30 @@ const AdminMembers: React.FC = () => {
             )}
 
             {/* Edit Member Modal */}
+            {confirmDelete && (
+                <ConfirmModal
+                    title="Delete Member"
+                    message="Are you sure you want to permanently delete this member? This action cannot be undone."
+                    confirmLabel="Delete"
+                    confirmStyle="danger"
+                    onConfirm={() => handleDeleteMember(confirmDelete)}
+                    onCancel={() => setConfirmDelete(null)}
+                />
+            )}
+
+            {confirmSuspend && (
+                <ConfirmModal
+                    title={confirmSuspend.status === 'active' ? 'Suspend Member' : 'Reactivate Member'}
+                    message={confirmSuspend.status === 'active'
+                        ? `Are you sure you want to suspend ${confirmSuspend.first_name} ${confirmSuspend.last_name}? They will no longer be able to participate until reactivated.`
+                        : `Are you sure you want to reactivate ${confirmSuspend.first_name} ${confirmSuspend.last_name}?`}
+                    confirmLabel={confirmSuspend.status === 'active' ? 'Suspend' : 'Reactivate'}
+                    confirmStyle="warning"
+                    onConfirm={() => handleToggleStatus(confirmSuspend)}
+                    onCancel={() => setConfirmSuspend(null)}
+                />
+            )}
+
             {showEditModal && (
                 <div className="modal-overlay" onClick={() => { setShowEditModal(false); resetForm(); }}>
                     <div className="modal-content animate-slide-up" onClick={e => e.stopPropagation()}>
@@ -477,7 +613,9 @@ const AdminMembers: React.FC = () => {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Date of Birth</label>
-                                    <input type="date" value={formData.dob} onChange={e => setFormData({ ...formData, dob: e.target.value })} />
+                                    <AppDatePicker value={formData.dob}
+                                        onChange={(d) => setFormData({ ...formData, dob: d })}
+                                        placeholderText="Select date of birth" className="form-input" />
                                 </div>
                                 <div className="form-group">
                                     <label>Gender</label>
@@ -492,7 +630,7 @@ const AdminMembers: React.FC = () => {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Hometown</label>
-                                    <input placeholder="City, Country" value={formData.hometown} onChange={e => setFormData({ ...formData, hometown: e.target.value })} />
+                                    <input placeholder="e.g. Kumasi" value={formData.hometown} onChange={e => setFormData({ ...formData, hometown: e.target.value })} />
                                 </div>
                                 <div className="form-group">
                                     <label>Occupation</label>

@@ -1,57 +1,4 @@
 use crate::error::AppResult;
-use crate::models::{Song, CreateSongRequest};
-use crate::repositories::SongRepository;
-use crate::AppState;
-use std::fs;
-use std::path::Path;
-use tauri::State;
-
-#[tauri::command]
-pub async fn import_song_from_file(
-    state: State<'_, AppState>,
-    file_path: String,
-) -> AppResult<Song> {
-    // Read the file content
-    let content = fs::read_to_string(&file_path)
-        .map_err(|e| crate::error::AppError::Unknown(e.to_string()))?;
-    
-    // Parse the file content to extract song data
-    // For now, assuming it's a simple format with title and lyrics separated by ---
-    let parts: Vec<&str> = content.split("---").collect();
-    
-    let title = if parts.len() > 0 {
-        parts[0].trim().to_string()
-    } else {
-        Path::new(&file_path)
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string()
-    };
-    
-    let lyrics = if parts.len() > 1 {
-        parts[1..].join("---").trim().to_string()
-    } else {
-        content.trim().to_string()
-    };
-    
-    // Create a song request
-    let request = CreateSongRequest {
-        title,
-        lyrics,
-        key: None,
-        tempo: None,
-        tags: Some(vec!["imported".to_string()]),
-        chords: None,
-        show_chords: Some(false),
-        arrangement: None,
-    };
-    
-    // Save the song to the database
-    let conn = state.db.lock().unwrap();
-    SongRepository::create(&conn, request)
-}
-
 use serde::{Serialize, Deserialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -215,17 +162,23 @@ pub async fn prepare_media_for_playback(
     file_path: String,
     media_type: String,
 ) -> AppResult<String> {
+    println!("[MediaIO] prepare_media_for_playback: type={media_type}, input={file_path}");
+
     if file_path.is_empty() {
+        println!("[MediaIO] Empty file path, returning empty string");
         return Ok("".to_string());
     }
 
     let input_path = PathBuf::from(&file_path);
     if !input_path.exists() || !input_path.is_file() {
-        return Err(crate::error::AppError::Unknown(format!(
-            "File not found or not a valid file: {}",
-            file_path
-        )));
+        let err_msg = format!("File not found or not a valid file: {}", file_path);
+        println!("[MediaIO] {err_msg}");
+        return Err(crate::error::AppError::Unknown(err_msg));
     }
+    let input_size = std::fs::metadata(&input_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+    println!("[MediaIO] Input file OK: size={input_size}");
 
     let cache_dir = app
         .path()
@@ -243,15 +196,24 @@ pub async fn prepare_media_for_playback(
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "media".to_string());
     let output_path = cache_dir.join(format!("{}-{}.{}", original_stem, cache_key, output_ext));
+    println!("[MediaIO] Cache path: {}", output_path.display());
 
     if output_path.exists() && output_path.metadata().map(|m| m.len()).unwrap_or(0) > 0 {
+        let cached_size = std::fs::metadata(&output_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+        println!("[MediaIO] Cache HIT: using existing file ({cached_size} bytes)");
         return Ok(output_path.to_string_lossy().to_string());
     }
+
+    println!("[MediaIO] Cache MISS: starting ffmpeg conversion...");
 
     // Create cache directory
     tokio::fs::create_dir_all(&cache_dir)
         .await
         .map_err(|e| crate::error::AppError::Unknown(format!("Failed to create media cache: {}", e)))?;
+
+    let start = std::time::Instant::now();
 
     // Build the ffmpeg command asynchronously (tokio::process::Command)
     let output = if media_type == "audio" {
@@ -269,10 +231,15 @@ pub async fn prepare_media_for_playback(
             .args([
                 "-map", "0:v:0",
                 "-map", "0:a?",
-                "-c:v", "libvpx",
+                // VP9 with maximum speed settings for realtime-like conversion
+                "-c:v", "libvpx-vp9",
                 "-deadline", "realtime",
-                "-cpu-used", "8",
-                "-b:v", "2500k",
+                "-cpu-used", "8",       // 0=slowest/best, 8=fastest/worst quality
+                "-row-mt", "1",         // row-based multi-threading (big speedup)
+                "-tile-columns", "2",   // encode tiles in parallel
+                "-threads", "0",        // use all available CPU cores
+                "-crf", "35",           // quality (lower = better; 35 is fine for presentations)
+                "-b:v", "0",            // pure CRF mode (ignore bitrate target)
                 "-c:a", "libvorbis",
                 "-q:a", "4",
             ])
@@ -281,23 +248,35 @@ pub async fn prepare_media_for_playback(
             .await
     };
 
+    let elapsed = start.elapsed();
+    println!("[MediaIO] ffmpeg finished in {elapsed:?}");
+
     let output = output.map_err(|e| {
-        crate::error::AppError::Unknown(format!(
-            "FFmpeg is required to convert unsupported media for playback: {}", e
-        ))
+        let msg = format!("FFmpeg is required to convert unsupported media for playback: {}", e);
+        println!("[MediaIO] ffmpeg spawn error: {msg}");
+        crate::error::AppError::Unknown(msg)
     })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         let _ = tokio::fs::remove_file(&output_path).await;
-        return Err(crate::error::AppError::Unknown(format!(
+        let msg = format!(
             "FFmpeg conversion failed: {}",
             if stderr.is_empty() { "unknown error".to_string() } else { stderr }
-        )));
+        );
+        println!("[MediaIO] {msg}");
+        return Err(crate::error::AppError::Unknown(msg));
     }
+
+    let final_size = std::fs::metadata(&output_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+    println!("[MediaIO] Conversion OK: output={} ({final_size} bytes, took {elapsed:?})", output_path.display());
 
     Ok(output_path.to_string_lossy().to_string())
 }
+
+
 
 fn media_cache_key(path: &PathBuf, media_type: &str) -> String {
     let mut hasher = DefaultHasher::new();
@@ -330,9 +309,66 @@ fn sanitize_file_stem(stem: &str) -> String {
 /// making this efficient even for moderately large files.
 #[tauri::command]
 pub async fn read_file_bytes(path: String) -> crate::error::AppResult<Vec<u8>> {
-    tokio::fs::read(&path)
+    let start = std::time::Instant::now();
+    let metadata = std::fs::metadata(&path).ok();
+    let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
+    println!(
+        "[MediaIO] read_file_bytes called: path={path}, size={size}, exists={}",
+        metadata.is_some()
+    );
+    let result = tokio::fs::read(&path).await;
+    match &result {
+        Ok(bytes) => println!(
+            "[MediaIO] read_file_bytes success: {} bytes in {:?}",
+            bytes.len(),
+            start.elapsed()
+        ),
+        Err(e) => println!("[MediaIO] read_file_bytes FAILED: {e}"),
+    }
+    result.map_err(|e| crate::error::AppError::Unknown(format!("Failed to read file: {}", e)))
+}
+
+/// Opens a save dialog and writes binary data to the selected path.
+/// Supports common file types: xlsx, pdf, csv, png, jpg.
+#[tauri::command]
+pub async fn save_file(app: tauri::AppHandle, filename: String, data: Vec<u8>) -> Result<(), String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let ext = std::path::Path::new(&filename)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let mut dialog = app.dialog()
+        .file()
+        .set_file_name(&filename);
+
+    let filter_name = match ext.as_str() {
+        "xlsx" => "Excel Files (*.xlsx)",
+        "pdf" => "PDF Files (*.pdf)",
+        "csv" => "CSV Files (*.csv)",
+        "png" => "PNG Images (*.png)",
+        "jpg" | "jpeg" => "JPEG Images (*.jpg)",
+        _ => "All Files (*.*)",
+    };
+    let extensions: &[&str] = match ext.as_str() {
+        "xlsx" => &["xlsx"],
+        "pdf" => &["pdf"],
+        "csv" => &["csv"],
+        "png" => &["png"],
+        "jpg" | "jpeg" => &["jpg", "jpeg"],
+        _ => &["*"],
+    };
+    dialog = dialog.add_filter(filter_name, extensions);
+
+    let path = dialog.blocking_save_file().ok_or("Save cancelled")?;
+
+    tokio::fs::write(path.to_string(), &data)
         .await
-        .map_err(|e| crate::error::AppError::Unknown(format!("Failed to read file: {}", e)))
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(())
 }
 
 

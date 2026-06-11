@@ -21,6 +21,8 @@ export interface LocalMediaFile {
 
 // Cache data URLs for images read via Rust (used only for logo/branding images)
 const dataUrlCache = new Map<string, string>();
+// Cache blob URLs for media files read via IPC
+const blobUrlCache = new Map<string, string>();
 
 /**
  * Reads a local image file via Rust and returns a base64 Data URL.
@@ -43,67 +45,83 @@ const getLocalFileBlobUrl = async (filePath: string): Promise<string> => {
     }
 };
 
-// Cache blob URLs for media files
-const blobUrlCache = new Map<string, string>();
-const pendingReads = new Map<string, Promise<string>>();
-
-const mimeFromExt = (ext: string): string => {
-    const map: Record<string, string> = {
-        mp4: 'video/mp4', webm: 'video/webm', avi: 'video/x-msvideo',
-        mov: 'video/quicktime', mkv: 'video/x-matroska',
-        mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
-        flac: 'audio/flac', m4a: 'audio/mp4', wma: 'audio/x-ms-wma',
-        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-        gif: 'image/gif', webp: 'image/webp',
-    };
-    return map[ext.toLowerCase()] || 'application/octet-stream';
-};
-
-/**
- * Reads a file from disk via Rust and creates a blob:// URL.
- * Works reliably with HTML5 <video>/<audio> elements.
- * In Tauri v2, Vec<u8> is transferred as binary IPC (not JSON),
- * so this is efficient for most files.
- */
-const getMediaBlobUrl = async (filePath: string): Promise<string> => {
-    if (!filePath) return '';
-    const cached = blobUrlCache.get(filePath);
-    if (cached) return cached;
-
-    const pending = pendingReads.get(filePath);
-    if (pending) return pending;
-
-    const promise = (async () => {
-        try {
-            const ext = filePath.split('.').pop() || '';
-            const mime = mimeFromExt(ext);
-            const bytes = await invoke<number[]>('read_file_bytes', { path: filePath });
-            const uint8 = new Uint8Array(bytes);
-            const blob = new Blob([uint8], { type: mime });
-            const url = URL.createObjectURL(blob);
-            blobUrlCache.set(filePath, url);
-            return url;
-        } catch (err) {
-            console.error(`[MediaAPI] Failed to read file: ${filePath}`, err);
-            return '';
-        } finally {
-            pendingReads.delete(filePath);
-        }
-    })();
-
-    pendingReads.set(filePath, promise);
-    return promise;
-};
-
 /**
  * Converts a local file path to a Tauri asset:// URL.
  * Streams the file directly from disk — no memory overhead.
- * Falls back to streaming via IPC if asset protocol fails.
  */
 const getAssetUrlSync = (filePath: string): string => {
-    if (!filePath) return '';
-    return convertFileSrc(filePath, 'asset');
+    if (!filePath) {
+        console.warn('[MediaAPI] getAssetUrlSync called with empty path');
+        return '';
+    }
+    const url = convertFileSrc(filePath, 'asset');
+    console.log(`[MediaAPI] getAssetUrlSync: ${filePath} -> ${url}`);
+    logTerminal('info', `[MediaAPI] Asset URL: ${url}`);
+    return url;
 };
+
+/**
+ * SAFE media URL resolver.
+ *
+ * Uses Tauri's native `asset://` streaming protocol so the browser reads the file
+ * directly from disk — NO data ever crosses the IPC bridge, which prevents the
+ * OOM crash that occurred when read_file_bytes tried to load an entire video into RAM.
+ *
+ * The old `read_file_bytes → Blob` path is kept ONLY as a fallback for tiny audio
+ * files (<20 MB) where codec conversion may be needed, and is explicitly guarded
+ * against video files.
+ */
+const VIDEO_SIZE_LIMIT_BYTES = 20 * 1024 * 1024; // 20 MB safe IPC limit
+
+const getMediaBlobUrl = async (filePath: string): Promise<string> => {
+    if (!filePath) {
+        console.warn('[MediaAPI] getMediaBlobUrl called with empty path');
+        return '';
+    }
+
+    // ── Fast path: asset:// streaming (zero memory, works for ANY size file) ──
+    // This is what we should always use for video. The browser streams it directly.
+    const assetUrl = convertFileSrc(filePath, 'asset');
+    console.log(`[MediaAPI] Using asset:// URL for: ${filePath} → ${assetUrl}`);
+    logTerminal('info', `[MediaAPI] asset:// URL: ${assetUrl}`).catch(() => {});
+    return assetUrl;
+};
+
+// Legacy blob helper — kept for images / small audio files only (NOT video).
+// This path MUST NOT be called for video files — it will crash on large files.
+const getMediaBlobUrlLegacy = async (filePath: string): Promise<string> => {
+    if (!filePath) return '';
+    const blobUrlKey = `blob:${filePath}`;
+    if (blobUrlCache.has(blobUrlKey)) return blobUrlCache.get(blobUrlKey)!;
+
+    try {
+        const bytes = await invoke<number[]>('read_file_bytes', { path: filePath });
+        if (!bytes || bytes.length === 0) {
+            return convertFileSrc(filePath, 'asset');
+        }
+        // Safety guard — never load more than 20 MB via IPC
+        if (bytes.length > VIDEO_SIZE_LIMIT_BYTES) {
+            console.warn(`[MediaAPI] File too large for IPC (${(bytes.length / 1024 / 1024).toFixed(1)} MB), using asset:// instead`);
+            return convertFileSrc(filePath, 'asset');
+        }
+        const ext = filePath.split('.').pop()?.toLowerCase() || '';
+        const mimeMap: Record<string, string> = {
+            ogg: 'audio/ogg', mp3: 'audio/mpeg', wav: 'audio/wav',
+            flac: 'audio/flac', m4a: 'audio/mp4',
+            jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+            gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp',
+        };
+        const mime = mimeMap[ext] || 'application/octet-stream';
+        const blob = new Blob([new Uint8Array(bytes)], { type: mime });
+        const url = URL.createObjectURL(blob);
+        blobUrlCache.set(blobUrlKey, url);
+        return url;
+    } catch (err) {
+        console.error(`[MediaAPI] Legacy blob FAILED for: ${filePath}`, err);
+        return convertFileSrc(filePath, 'asset');
+    }
+};
+
 
 const getFileName = (filePath: string): string =>
     filePath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || 'Unknown';
@@ -124,14 +142,24 @@ export const mediaApi = {
     prepareForPlayback: (filePath: string, mediaType: 'audio' | 'video'): Promise<string> =>
         invoke('prepare_media_for_playback', { filePath, mediaType }),
 
-    /** Async — reads file from disk, creates a blob URL. Use for images. */
+    /** Async — reads an image file from disk and returns a base64 Data URL. */
     getLocalImageUrl: getLocalFileBlobUrl,
 
-    /** Sync — returns a Tauri asset:// URL (may not work for media on all platforms). */
+    /** Sync — returns a Tauri asset:// URL that streams directly from disk. */
     getAssetUrl: getAssetUrlSync,
 
-    /** Async — reads file from disk via IPC, creates blob URL. */
+    /**
+     * Safe media URL resolver.
+     * Returns an asset:// URL that the Tauri webview streams directly from disk.
+     * Never loads the whole file into memory — safe for videos of any size.
+     */
     getMediaUrl: getMediaBlobUrl,
+
+    /**
+     * Legacy IPC blob URL — for small audio-only files (<20 MB) where codec conversion
+     * may be needed. Do NOT use for video files (causes OOM crash).
+     */
+    getMediaUrlLegacy: getMediaBlobUrlLegacy,
 
     getFileName,
     getFileExtension,

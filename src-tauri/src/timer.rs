@@ -47,6 +47,7 @@ impl ActiveTimer {
         self.elapsed_seconds() > self.duration_seconds
     }
 
+    #[expect(dead_code)]
     pub fn overrun_seconds(&self) -> i64 {
         if self.is_overrun() {
             self.elapsed_seconds() - self.duration_seconds

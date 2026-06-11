@@ -30,6 +30,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all"
+    "targets": "all",
+    "icon": ["icons/icon.ico"],
+    "resources": [
+      "resources/kjv_bible.json",
+      "resources/web_bible.json",
+      "resources/asv_bible.json",
+      "resources/ylt_bible.json"
+    ]
   }
 }

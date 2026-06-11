@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { serviceApi, activityApi, Service, Activity, CreateServiceRequest, CreateActivityRequest } from '../api';
+import AppDatePicker from '../components/AppDatePicker';
 import { MdEvent, MdAdd, MdEdit, MdDelete, MdPerson, MdClose } from 'react-icons/md';
 import './ServiceManager.css';
 
@@ -244,12 +245,9 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ onClose, onSave }) => {
 
           <div className="form-group">
             <label>Date *</label>
-            <input
-              type="date"
-              required
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            />
+            <AppDatePicker value={formData.date}
+              onChange={(d) => setFormData({ ...formData, date: d })}
+              required className="form-input" />
           </div>
 
           <div className="form-group">

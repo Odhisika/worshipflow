@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { MdPeople, MdAttachMoney, MdEvent, MdGroup, MdTrendingUp } from 'react-icons/md';
 import { overviewApi, SystemStats, RecentActivity } from '../../api/overview';
+import { useDataRefresh } from '../../context/DataRefreshContext';
 import './AdminViews.css';
 
 const AdminOverview: React.FC = () => {
     const [stats, setStats] = useState<SystemStats | null>(null);
     const [activities, setActivities] = useState<RecentActivity[]>([]);
     const [loading, setLoading] = useState(true);
+    const { refreshSignal } = useDataRefresh();
 
     useEffect(() => {
         const loadData = async () => {
+            setLoading(true);
             try {
-                // Load stats
                 try {
                     const statsData = await overviewApi.getSystemStats();
                     setStats(statsData);
                 } catch (e) {
                     console.error('Failed to load system stats:', e);
                 }
-
-                // Load activity
                 try {
                     const activityData = await overviewApi.getRecentActivity();
                     setActivities(activityData);
@@ -31,7 +31,7 @@ const AdminOverview: React.FC = () => {
             }
         };
         loadData();
-    }, []);
+    }, [refreshSignal]);
 
     const formatCurrency = (amount: number) => {
         const formatted = new Intl.NumberFormat('en-GH', {

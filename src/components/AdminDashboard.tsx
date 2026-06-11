@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     MdDashboard, MdPeople, MdEvent, MdAttachMoney,
     MdSettings, MdLogout, MdGroup, MdCampaign,
-    MdPieChart, MdEmail, MdCheckCircle, MdAssignmentInd, MdFactCheck
+    MdPieChart, MdCheckCircle, MdAssignmentInd, MdFactCheck,
+    MdSearch, MdClose, MdKeyboardArrowRight
 } from 'react-icons/md';
 import './AdminDashboard.css';
+import { memberApi, Member } from '../api/members';
+import { groupApi, Group } from '../api/groups';
+import { eventsApi, Event } from '../api/events';
+import { settingsApi } from '../api/settings';
+import { mediaApi } from '../api/media';
+import { DataRefreshProvider } from '../context/DataRefreshContext';
 
 // Sub-components
 import AdminOverview from './admin/AdminOverview';
@@ -20,13 +27,102 @@ import AdminCheckIn from './admin/AdminCheckIn';
 import AdminReports from './admin/AdminReports';
 import AdminSettings from './admin/AdminSettings';
 
-const AdminDashboard: React.FC = () => {
+interface AdminDashboardProps {
+    userEmail?: string;
+}
+
+interface SearchResults {
+    members: Member[];
+    groups: Group[];
+    events: Event[];
+}
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ userEmail }) => {
     const [activeTab, setActiveTab] = useState('overview');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<SearchResults>({ members: [], groups: [], events: [] });
+    const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+    const [searchLoading, setSearchLoading] = useState(false);
     const navigate = useNavigate();
+    const searchRef = useRef<HTMLDivElement>(null);
+    const profileRef = useRef<HTMLDivElement>(null);
+    const [churchLogo, setChurchLogo] = useState('');
+
+    useEffect(() => {
+        settingsApi.getAppConfig().then(async (config) => {
+            if (config.church_logo) {
+                const url = await mediaApi.getLocalImageUrl(config.church_logo);
+                setChurchLogo(url);
+            }
+        }).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+                setShowSearchDropdown(false);
+            }
+            if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+                setShowProfileDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setSearchResults({ members: [], groups: [], events: [] });
+            setShowSearchDropdown(false);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            setSearchLoading(true);
+            try {
+                const [members, groups, events] = await Promise.all([
+                    memberApi.getMembers(),
+                    groupApi.getGroups(),
+                    eventsApi.getAllEvents(),
+                ]);
+                const q = searchQuery.toLowerCase();
+                setSearchResults({
+                    members: members.filter(m =>
+                        `${m.first_name} ${m.last_name}`.toLowerCase().includes(q) ||
+                        m.email?.toLowerCase().includes(q)
+                    ),
+                    groups: groups.filter(g =>
+                        g.name.toLowerCase().includes(q) ||
+                        g.description?.toLowerCase().includes(q)
+                    ),
+                    events: events.filter(e =>
+                        e.title.toLowerCase().includes(q) ||
+                        e.description?.toLowerCase().includes(q)
+                    ),
+                });
+                setShowSearchDropdown(true);
+            } catch {
+                setSearchResults({ members: [], groups: [], events: [] });
+            } finally {
+                setSearchLoading(false);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    const handleSearchResultClick = (tab: string) => {
+        setActiveTab(tab);
+        setSearchQuery('');
+        setSearchResults({ members: [], groups: [], events: [] });
+        setShowSearchDropdown(false);
+    };
 
     const handleLogout = () => {
         navigate('/admin/login');
     };
+
+    const avatarLetter = userEmail ? userEmail[0].toUpperCase() : 'A';
+    const totalResults = searchResults.members.length + searchResults.groups.length + searchResults.events.length;
 
     const renderContent = () => {
         switch (activeTab) {
@@ -62,7 +158,11 @@ const AdminDashboard: React.FC = () => {
             {/* Admin Sidebar */}
             <aside className="admin-sidebar">
                 <div className="admin-logo">
-                    <div className="logo-icon-small"></div>
+                    {churchLogo ? (
+                        <img src={churchLogo} alt="Church" className="sidebar-logo-img" />
+                    ) : (
+                        <div className="logo-icon-small"></div>
+                    )}
                     <div>
                         <h2>Church Admin</h2>
                         <p className="admin-role">System Administrator</p>
@@ -181,17 +281,103 @@ const AdminDashboard: React.FC = () => {
             {/* Main Content Area */}
             <main className="admin-content-area">
                 <header className="admin-header">
-                    <div className="header-search">
-                        <input type="text" placeholder="Search members, groups, or events..." />
+                    {churchLogo && (
+                        <img src={churchLogo} alt="Church" className="header-logo-img" />
+                    )}
+                    <div className="header-search" ref={searchRef}>
+                        <MdSearch className="search-icon" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search members, groups, or events..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            onFocus={() => { if (totalResults > 0) setShowSearchDropdown(true); }}
+                        />
+                        {searchQuery && (
+                            <button className="search-clear" onClick={() => { setSearchQuery(''); setShowSearchDropdown(false); }}>
+                                <MdClose size={16} />
+                            </button>
+                        )}
+                        {showSearchDropdown && (
+                            <div className="search-dropdown">
+                                {searchLoading ? (
+                                    <div className="search-loading">Searching...</div>
+                                ) : totalResults === 0 ? (
+                                    <div className="search-no-results">No results found</div>
+                                ) : (
+                                    <>
+                                        {searchResults.members.length > 0 && (
+                                            <div className="search-category">
+                                                <div className="search-category-label">Members ({searchResults.members.length})</div>
+                                                {searchResults.members.map(m => (
+                                                    <button key={m.id} className="search-result-item" onClick={() => handleSearchResultClick('members')}>
+                                                        <MdPeople size={16} />
+                                                        <span>{m.first_name} {m.last_name}</span>
+                                                        <MdKeyboardArrowRight size={16} className="search-result-arrow" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {searchResults.groups.length > 0 && (
+                                            <div className="search-category">
+                                                <div className="search-category-label">Groups ({searchResults.groups.length})</div>
+                                                {searchResults.groups.map(g => (
+                                                    <button key={g.id} className="search-result-item" onClick={() => handleSearchResultClick('groups')}>
+                                                        <MdGroup size={16} />
+                                                        <span>{g.name}</span>
+                                                        <MdKeyboardArrowRight size={16} className="search-result-arrow" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {searchResults.events.length > 0 && (
+                                            <div className="search-category">
+                                                <div className="search-category-label">Events ({searchResults.events.length})</div>
+                                                {searchResults.events.map(e => (
+                                                    <button key={e.id} className="search-result-item" onClick={() => handleSearchResultClick('events')}>
+                                                        <MdEvent size={16} />
+                                                        <span>{e.title}</span>
+                                                        <MdKeyboardArrowRight size={16} className="search-result-arrow" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
-                    <div className="header-actions">
-                        <button className="icon-action-btn"><MdEmail size={20} /></button>
-                        <div className="admin-avatar">A</div>
+                    <div className="header-actions" ref={profileRef}>
+                        <div className="admin-avatar" onClick={() => setShowProfileDropdown(!showProfileDropdown)}>
+                            {avatarLetter}
+                        </div>
+                        {showProfileDropdown && (
+                            <div className="profile-dropdown">
+                                <div className="profile-dropdown-header">
+                                    <div className="profile-dropdown-avatar">{avatarLetter}</div>
+                                    <div className="profile-dropdown-info">
+                                        <div className="profile-dropdown-email">{userEmail || 'Admin'}</div>
+                                        <div className="profile-dropdown-role">Administrator</div>
+                                    </div>
+                                </div>
+                                <div className="profile-dropdown-divider" />
+                                <button className="profile-dropdown-item" onClick={() => { setActiveTab('settings'); setShowProfileDropdown(false); }}>
+                                    <MdSettings size={16} />
+                                    <span>Settings</span>
+                                </button>
+                                <button className="profile-dropdown-item logout" onClick={handleLogout}>
+                                    <MdLogout size={16} />
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </header>
 
                 <div className="admin-scroll-content">
-                    {renderContent()}
+                    <DataRefreshProvider>
+                        {renderContent()}
+                    </DataRefreshProvider>
                 </div>
             </main>
         </div>

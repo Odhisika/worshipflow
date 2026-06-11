@@ -6,7 +6,13 @@
     "core:default",
     {
       "identifier": "core:asset:default",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        { "path": "**" },
+        { "path": "$CACHE/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$HOME/**" },
+        { "path": "/**" }
+      ]
     },
     "event:default",
     "dialog:default",

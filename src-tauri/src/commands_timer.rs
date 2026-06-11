@@ -4,7 +4,7 @@ use crate::repositories::ActivityRepository;
 use crate::timer::TIMER;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
-use tauri::{Emitter, Manager, State};
+use tauri::{Emitter, State};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimerInfo {

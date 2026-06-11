@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { mediaApi } from '../api/media';
+import { MdPalette, MdAutoAwesome, MdImage, MdFolderOpen, MdCheckCircle, MdClose } from 'react-icons/md';
 import './BackgroundPicker.css';
 
 export interface BackgroundOption {
@@ -110,8 +111,10 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
       <div className="bg-picker-modal">
         {/* Header */}
         <div className="bg-picker-header">
-          <h2>🎨 Presentation Background</h2>
-          <button className="bg-picker-close" onClick={onClose}>×</button>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <MdPalette size={20} /> Presentation Background
+          </h2>
+          <button className="bg-picker-close" onClick={onClose}><MdClose size={20} /></button>
         </div>
 
         {/* Tabs */}
@@ -119,14 +122,16 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
           <button
             className={`bg-tab ${activeTab === 'premade' ? 'active' : ''}`}
             onClick={() => setActiveTab('premade')}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
           >
-            ✨ Pre-made Designs
+            <MdAutoAwesome size={16} /> Pre-made Designs
           </button>
           <button
             className={`bg-tab ${activeTab === 'upload' ? 'active' : ''}`}
             onClick={() => setActiveTab('upload')}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
           >
-            🖼 Your Images
+            <MdImage size={16} /> Your Images
           </button>
         </div>
 
@@ -166,14 +171,17 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
           {activeTab === 'upload' && (
             <div>
               <div className="bg-upload-zone" onClick={handleBrowse}>
-                <div className="bg-upload-icon">📂</div>
+                <div className="bg-upload-icon">
+                  <MdFolderOpen size={48} />
+                </div>
                 <h3>Browse your images</h3>
                 <p>JPG, PNG, WebP — any size works great</p>
                 <button
                   className="bg-upload-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                   onClick={e => { e.stopPropagation(); handleBrowse(); }}
                 >
-                  📤 Choose Image
+                  <MdFolderOpen size={16} /> Choose Image
                 </button>
               </div>
               {uploadedPath && (
@@ -186,8 +194,8 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
                     src={mediaApi.getAssetUrl(uploadedPath)}
                     alt="Selected background"
                   />
-                  <div className="bg-selected-label">
-                    ✓ {uploadedPath.split('/').pop()}
+                  <div className="bg-selected-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <MdCheckCircle size={14} /> {uploadedPath.split('/').pop()}
                   </div>
                 </div>
               )}
@@ -198,8 +206,12 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
         {/* Footer */}
         <div className="bg-picker-footer">
           <button className="bg-btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="bg-btn-apply" onClick={handleApply}>
-            ✓ Apply Background
+          <button 
+            className="bg-btn-apply" 
+            onClick={handleApply}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <MdCheckCircle size={16} /> Apply Background
           </button>
         </div>
       </div>

@@ -335,4 +335,23 @@ impl BibleRepository {
         )?;
         Ok(count)
     }
+
+    pub fn delete_version(conn: &Connection, version: &str) -> AppResult<usize> {
+        let count = conn.execute(
+            "DELETE FROM bible_verses WHERE version = ?1",
+            rusqlite::params![version],
+        )?;
+        Ok(count)
+    }
+
+    pub fn get_version_stats(conn: &Connection) -> AppResult<Vec<(String, i64)>> {
+        let mut stmt = conn.prepare(
+            "SELECT version, COUNT(*) as cnt FROM bible_verses GROUP BY version ORDER BY version"
+        )?;
+        let stats = stmt.query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(stats)
+    }
 }
