@@ -3,12 +3,12 @@
 /// Supported formats:
 ///   - Zefania XML  (.xml with root element <XMLBIBLE>)
 ///   - OSIS XML     (.xml/.osis with root element <osis>)
+///   - Biblica/YouVersion XML (.xml with root element <bible>)
 ///   - WorshipFlow JSON (.json  —  our own format)
 
 use crate::error::{AppError, AppResult};
 use quick_xml::events::Event;
 use quick_xml::Reader;
-use std::io::BufRead;
 use std::path::Path;
 
 pub type VerseRow = (String, i32, i32, String, String); // (book, chapter, verse, text, version)
@@ -25,15 +25,17 @@ pub fn import_bible_file(path: &Path) -> AppResult<(String, Vec<VerseRow>)> {
         "json" => parse_json(path),
         "osis" => parse_osis(path),
         "xml" => {
-            // Peek at the root element to distinguish Zefania vs OSIS
+            // Peek at the root element to distinguish Zefania vs OSIS vs Biblica
             let root = peek_xml_root(path)?;
             if root.to_uppercase().contains("XMLBIBLE") {
                 parse_zefania(path)
             } else if root.to_lowercase().contains("osis") {
                 parse_osis(path)
+            } else if root.to_lowercase() == "bible" {
+                parse_biblica(path)
             } else {
                 Err(AppError::Unknown(format!(
-                    "Unrecognised XML root element '{}'. Expected XMLBIBLE (Zefania) or osis (OSIS).",
+                    "Unrecognised XML root element '{}'. Expected XMLBIBLE (Zefania), osis (OSIS), or bible (Biblica/YouVersion).",
                     root
                 )))
             }
@@ -354,6 +356,177 @@ pub fn parse_osis(path: &Path) -> AppResult<(String, Vec<VerseRow>)> {
     }
 
     Ok((version_name, rows))
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Biblica / YouVersion XML parser
+//  Structure: <bible translation="..."> →
+//             <testament name="Old"> / <testament name="New"> →
+//             <book number="1"> (number only — mapped via standard canon order) →
+//             <chapter number="1"> →
+//             <verse number="1">text</verse>
+// ─────────────────────────────────────────────────────────────────
+pub fn parse_biblica(path: &Path) -> AppResult<(String, Vec<VerseRow>)> {
+    let content = read_file_with_encoding(path)?;
+    let mut reader = Reader::from_str(&content);
+    reader.config_mut().trim_text(true);
+
+    let mut rows: Vec<VerseRow> = Vec::new();
+    let mut buf = Vec::new();
+
+    let mut version_name = String::from("IMPORTED");
+    let ot_books = canon_ot_books();
+    let nt_books = canon_nt_books();
+    let mut current_testament: Option<&[&str]> = None;
+    let mut current_book = String::new();
+    let mut current_chapter: i32 = 0;
+    let mut current_verse_num: i32 = 0;
+    let mut inside_verse = false;
+    let mut verse_text = String::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
+                let tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let tag = local_name(&tag);
+                match tag {
+                    "bible" => {
+                        for attr in e.attributes().flatten() {
+                            let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if key == "translation" {
+                                let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default();
+                                if !val.is_empty() {
+                                    version_name = val.to_string();
+                                }
+                            }
+                        }
+                    }
+                    "testament" => {
+                        for attr in e.attributes().flatten() {
+                            let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if key == "name" {
+                                let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default();
+                                current_testament = if val.to_lowercase() == "old" {
+                                    Some(&ot_books)
+                                } else {
+                                    Some(&nt_books)
+                                };
+                            }
+                        }
+                    }
+                    "book" => {
+                        if let Some(books) = current_testament {
+                            for attr in e.attributes().flatten() {
+                                let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                                if key == "number" {
+                                    let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default();
+                                    let num: usize = val.parse().unwrap_or(0);
+                                    // XML uses continuous numbering: OT=1-39, NT=40-66
+                                    let idx = if current_testament == Some(&ot_books) {
+                                        num.checked_sub(1)
+                                    } else {
+                                        num.checked_sub(40)
+                                    };
+                                    if let Some(i) = idx {
+                                        if i < books.len() {
+                                            current_book = books[i].to_string();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        current_chapter = 0;
+                    }
+                    "chapter" => {
+                        for attr in e.attributes().flatten() {
+                            let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if key == "number" {
+                                let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default();
+                                current_chapter = val.parse().unwrap_or(0);
+                            }
+                        }
+                    }
+                    "verse" => {
+                        for attr in e.attributes().flatten() {
+                            let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if key == "number" {
+                                let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default();
+                                current_verse_num = val.parse().unwrap_or(0);
+                            }
+                        }
+                        inside_verse = true;
+                        verse_text.clear();
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Text(e)) => {
+                if inside_verse {
+                    if let Ok(t) = e.unescape() {
+                        verse_text.push_str(&t);
+                    }
+                }
+            }
+            Ok(Event::End(ref e)) => {
+                let tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                if local_name(&tag) == "verse" && inside_verse {
+                    let text = verse_text.trim().to_string();
+                    if !text.is_empty() && !current_book.is_empty() {
+                        rows.push((
+                            current_book.clone(),
+                            current_chapter,
+                            current_verse_num,
+                            text,
+                            version_name.clone(),
+                        ));
+                    }
+                    inside_verse = false;
+                    verse_text.clear();
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                return Err(AppError::Unknown(format!(
+                    "Biblica XML parse error: {}",
+                    e
+                )))
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    if rows.is_empty() {
+        return Err(AppError::Unknown(
+            "No verses found in Biblica/YouVersion XML file.".into(),
+        ));
+    }
+
+    Ok((version_name, rows))
+}
+
+fn canon_ot_books() -> Vec<&'static str> {
+    vec![
+        "1 Mose", "2 Mose", "3 Mose", "4 Mose", "5 Mose",
+        "Yosua", "Atemmufoɛ", "Rut", "1 Samuel", "2 Samuel",
+        "1 Ahemfo", "2 Ahemfo", "1 Anansesɛm", "2 Anansesɛm", "Esra",
+        "Nehemia", "Ester", "Hiob", "Nnwom", "Mmebusɛm",
+        "Ɔsɛnkafoɛ", "Nnwom Solomo", "Yesaia", "Yeremia", "Nkɔnbeɛ",
+        "Hesekiel", "Daniel", "Hosea", "Joel", "Amosi",
+        "Obadia", "Yona", "Mikea", "Nahum", "Habakuk",
+        "Sefania", "Hagai", "Sakaria", "Malaki",
+    ]
+}
+
+fn canon_nt_books() -> Vec<&'static str> {
+    vec![
+        "Mateo", "Marko", "Luka", "Yohane", "Asomafoɛ",
+        "Roma", "1 Korintofoɛ", "2 Korintofoɛ", "Galatia", "Efesofoɛ",
+        "Filipifoɛ", "Kolosefoɛ", "1 Tesalonikafoɛ", "2 Tesalonikafoɛ",
+        "1 Timoteo", "2 Timoteo", "Tito", "Filemon", "Hebrifoɛ",
+        "Yakobo", "1 Petro", "2 Petro", "1 Yohane", "2 Yohane", "3 Yohane",
+        "Yuda", "Adiyisɛm",
+    ]
 }
 
 // ─────────────────────────────────────────────────────────────────

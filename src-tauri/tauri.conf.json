@@ -16,7 +16,8 @@
       "resources/kjv_bible.json",
       "resources/web_bible.json",
       "resources/asv_bible.json",
-      "resources/ylt_bible.json"
+      "resources/ylt_bible.json",
+      "resources/TwiAkuapemBible.xml"
     ]
   },
   "app": {

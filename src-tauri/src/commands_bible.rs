@@ -42,9 +42,13 @@ struct BibleDataJson {
 #[tauri::command]
 pub async fn get_bible_books(
     state: State<'_, AppState>,
+    version: Option<String>,
 ) -> AppResult<Vec<(String, String, i32)>> {
     let conn = state.db.lock().unwrap();
-    BibleRepository::get_books(&conn)
+    match version {
+        Some(v) => BibleRepository::get_books_for_version(&conn, &v),
+        None => BibleRepository::get_books(&conn),
+    }
 }
 
 #[tauri::command]
@@ -149,7 +153,7 @@ pub fn perform_bible_import_from_file(
             ];
             for path in paths {
                 if path.exists() {
-                    println!("DEBUG: Found Bible JSON at fallback path: {:?}", path);
+                    println!("DEBUG: Found Bible file at fallback path: {:?}", path);
                     return Some(path);
                 }
             }
@@ -170,48 +174,57 @@ pub fn perform_bible_import_from_file(
 
     println!("DEBUG: Resolved Bible resource path: {:?}", resource_path);
 
-    let file = File::open(&resource_path)
-        .map_err(|e| {
-            println!("DEBUG ERROR: Failed to open Bible JSON file at {:?}: {}", resource_path, e);
-            AppError::Unknown(format!("Failed to open Bible JSON: {}", e))
-        })?;
-    let reader = BufReader::new(file);
+    let ext = resource_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
 
-    let bible_data: BibleDataJson = serde_json::from_reader(reader)
-        .map_err(|e| {
-            log::error!("Failed to parse Bible JSON: {}", e);
-            AppError::Unknown(format!("Failed to parse Bible JSON: {}", e))
-        })?;
+    let (version_name, verses) = if ext == "json" {
+        // Parse native WorshipFlow JSON format
+        let file = File::open(&resource_path)
+            .map_err(|e| {
+                println!("DEBUG ERROR: Failed to open Bible file at {:?}: {}", resource_path, e);
+                AppError::Unknown(format!("Failed to open Bible file: {}", e))
+            })?;
+        let reader = BufReader::new(file);
+        let bible_data: BibleDataJson = serde_json::from_reader(reader)
+            .map_err(|e| {
+                log::error!("Failed to parse Bible JSON: {}", e);
+                AppError::Unknown(format!("Failed to parse Bible JSON: {}", e))
+            })?;
 
-    log::info!("Successfully parsed Bible JSON. Starting database insertion...");
-
-    let mut verses: Vec<(String, i32, i32, String, String)> = Vec::new();
-    let version = bible_data.version.clone();
-
-    for book in &bible_data.books {
-        for chapter in &book.chapters {
-            let chapter_num: i32 = chapter.chapter.parse().unwrap_or(0);
-            for verse in &chapter.verses {
-                let verse_num: i32 = verse.verse.parse().unwrap_or(0);
-                verses.push((
-                    book.book.clone(),
-                    chapter_num,
-                    verse_num,
-                    verse.text.clone(),
-                    version.clone(),
-                ));
+        let mut verses: Vec<(String, i32, i32, String, String)> = Vec::new();
+        let version = bible_data.version.clone();
+        for book in &bible_data.books {
+            for chapter in &book.chapters {
+                let chapter_num: i32 = chapter.chapter.parse().unwrap_or(0);
+                for verse in &chapter.verses {
+                    let verse_num: i32 = verse.verse.parse().unwrap_or(0);
+                    verses.push((
+                        book.book.clone(),
+                        chapter_num,
+                        verse_num,
+                        verse.text.clone(),
+                        version.clone(),
+                    ));
+                }
             }
         }
-    }
+        (version, verses)
+    } else {
+        // Use bible_importer for XML (Zefania, OSIS, Biblica) etc.
+        bible_importer::import_bible_file(&resource_path)?
+    };
 
     let count = verses.len();
-    log::info!("Flattened {} verses. Beginning transaction...", count);
+    log::info!("Parsed {} verses for '{}'. Beginning transaction...", count, version_name);
 
     let conn = state.db.lock().unwrap();
     BibleRepository::initialize_books(&conn)?;
     BibleRepository::bulk_import_verses(&conn, verses)?;
 
-    log::info!("Successfully imported {} verses into the database.", count);
+    log::info!("Successfully imported {} verses for '{}' into the database.", count, version_name);
     Ok(count)
 }
 

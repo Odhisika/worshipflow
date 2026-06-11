@@ -60,6 +60,10 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .navbar-group {
@@ -1466,22 +1470,31 @@
 
 /* Small screen desktops & standard tablets */
 @media (max-width: 1080px) {
-  .console-navbar .btn-text {
-    display: none !important;
-  }
-  .navbar-btn {
-    width: 32px;
-    padding: 0;
-    justify-content: center;
-  }
   .navbar-actions {
     gap: 0.35rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    scrollbar-width: thin;
+  }
+  .navbar-actions::-webkit-scrollbar {
+    height: 4px;
+  }
+  .navbar-actions::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+  }
+  .navbar-btn {
+    padding: 0 0.5rem;
+    font-size: 0.72rem;
+    height: 30px;
   }
   .navbar-group {
-    gap: 0.25rem;
+    gap: 0.2rem;
   }
-  .navbar-logo h2 {
-    font-size: 0.85rem;
+  .navbar-divider {
+    margin: 0 0.15rem;
+    flex-shrink: 0;
   }
 }
 

@@ -21,8 +21,8 @@ export interface VersionInfo {
 }
 
 export const bibleApi = {
-  getBooks: (): Promise<[string, string, number][]> =>
-    invoke('get_bible_books'),
+  getBooks: (version?: string): Promise<[string, string, number][]> =>
+    invoke('get_bible_books', { version: version ?? null }),
 
   getVerses: (
     book: string,

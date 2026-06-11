@@ -206,6 +206,18 @@ pub async fn prepare_media_for_playback(
         return Ok(output_path.to_string_lossy().to_string());
     }
 
+    // Check if ffmpeg is available — if not, return original path (browser supports MP4/WebM natively)
+    let ffmpeg_available = Command::new("ffmpeg")
+        .args(["-version"])
+        .output()
+        .await
+        .is_ok();
+
+    if !ffmpeg_available {
+        println!("[MediaIO] ffmpeg not found, returning original file for direct playback");
+        return Ok(file_path);
+    }
+
     println!("[MediaIO] Cache MISS: starting ffmpeg conversion...");
 
     // Create cache directory

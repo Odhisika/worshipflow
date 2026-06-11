@@ -307,6 +307,30 @@ impl BibleRepository {
         Ok(books)
     }
 
+    pub fn get_books_for_version(conn: &Connection, version: &str) -> AppResult<Vec<(String, String, i32)>> {
+        // Get distinct books from bible_verses for this version, ordered by first occurrence
+        let mut stmt = conn.prepare(
+            "SELECT book, MAX(chapter) as chapters, MIN(id) as ordering
+             FROM bible_verses
+             WHERE version = ?1
+             GROUP BY book
+             ORDER BY ordering"
+        )?;
+
+        let rows: Vec<(String, i32, i32)> = stmt.query_map(rusqlite::params![version], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        // Determine testament: first 39 books are OT, rest are NT (standard canon)
+        let books: Vec<(String, String, i32)> = rows.into_iter().enumerate().map(|(idx, (name, chapters, _))| {
+            let testament = if idx < 39 { "OT" } else { "NT" };
+            (name, testament.to_string(), chapters)
+        }).collect();
+
+        Ok(books)
+    }
+
     pub fn bulk_import_verses(
         conn: &Connection,
         verses: Vec<(String, i32, i32, String, String)>, // (book, chapter, verse, text, version)

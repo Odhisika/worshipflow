@@ -71,6 +71,7 @@ fn main() {
                     ("web_bible.json", "WEB"),
                     ("asv_bible.json", "ASV"),
                     ("ylt_bible.json", "YLT"),
+                    ("TwiAkuapemBible.xml", "Twi Bible 2020 (Akuapem Twi Nkwa Asɛm)"),
                 ];
 
                 for (file, label) in &version_files {
@@ -81,10 +82,20 @@ fn main() {
                     };
                     drop(conn);
 
-                    if already_imported {
+                    // Force re-import XML files on every launch to pick up parser changes
+                    let should_reimport = already_imported && file.ends_with(".xml");
+
+                    if already_imported && !should_reimport {
                         println!("DEBUG: {} ({}) already imported, skipping.", label, file);
                     } else {
-                        println!("DEBUG: Importing {} ({})...", label, file);
+                        if should_reimport {
+                            println!("DEBUG: Re-importing {} ({}) (parser might have changed)...", label, file);
+                            let conn = state.db.lock().unwrap();
+                            let _ = crate::repositories::bible::BibleRepository::delete_version(&conn, label);
+                            drop(conn);
+                        } else {
+                            println!("DEBUG: Importing {} ({})...", label, file);
+                        }
                         if let Err(e) = crate::commands_bible::perform_bible_import_from_file(&app_handle, &state, file) {
                             println!("DEBUG ERROR: Failed to import {}: {:?}", file, e);
                         } else {

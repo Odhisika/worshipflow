@@ -75,8 +75,13 @@ const BibleBrowser: React.FC = () => {
       const count = await bibleApi.getVerseCount();
       setVerseCount(count);
 
+      const activeVer = await bibleApi.getActiveVersion();
+      if (activeVer) {
+        setActiveVersion(activeVer);
+      }
+
       await bibleApi.initializeBooks();
-      const rawBooks = await bibleApi.getBooks();
+      const rawBooks = await bibleApi.getBooks(activeVer ?? undefined);
       const mappedBooks: BibleBook[] = rawBooks.map(([name, testament, chapters]) => ({
         name,
         testament,
@@ -86,11 +91,6 @@ const BibleBrowser: React.FC = () => {
 
       if (mappedBooks.length > 0 && !selectedBook) {
         setSelectedBook(mappedBooks[0].name);
-      }
-
-      const activeVer = await bibleApi.getActiveVersion();
-      if (activeVer) {
-        setActiveVersion(activeVer);
       }
 
       const vers = await bibleApi.getVersions();
@@ -171,8 +171,14 @@ const BibleBrowser: React.FC = () => {
     setVersions(vers);
     setActiveVersion(version);
     await bibleApi.setActiveVersion(version);
-    if (selectedBook && chapter) {
-      loadVerses(selectedBook, chapter, version);
+    const rawBooks = await bibleApi.getBooks(version);
+    const mappedBooks: BibleBook[] = rawBooks.map(([name, testament, chapters]) => ({
+      name, testament, chapters
+    }));
+    setBooks(mappedBooks);
+    if (mappedBooks.length > 0) {
+      setSelectedBook(mappedBooks[0].name);
+      setChapter(1);
     }
     showNotification(`Imported "${version}" and switched to it`);
   };
@@ -183,8 +189,14 @@ const BibleBrowser: React.FC = () => {
     setActiveVersion(version);
     try {
       await bibleApi.setActiveVersion(version);
-      if (selectedBook && chapter) {
-        loadVerses(selectedBook, chapter, version);
+      const rawBooks = await bibleApi.getBooks(version);
+      const mappedBooks: BibleBook[] = rawBooks.map(([name, testament, chapters]) => ({
+        name, testament, chapters
+      }));
+      setBooks(mappedBooks);
+      if (mappedBooks.length > 0) {
+        setSelectedBook(mappedBooks[0].name);
+        setChapter(1);
       }
       showNotification(`Switched to ${formatVersionLabel(version)}`);
     } catch (error) {
