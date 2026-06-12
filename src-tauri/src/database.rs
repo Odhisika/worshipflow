@@ -10,6 +10,7 @@ pub fn initialize_database(db_path: &Path) -> Result<Connection> {
     create_tables(&conn)?;
     seed_default_admin(&conn)?;
     seed_default_giving_types(&conn)?;
+    seed_default_groups(&conn)?;
     
     Ok(conn)
 }
@@ -51,6 +52,34 @@ fn seed_default_giving_types(conn: &Connection) -> Result<()> {
             )?;
         }
         log::info!("Seeded default giving types");
+    }
+    Ok(())
+}
+
+fn seed_default_groups(conn: &Connection) -> Result<()> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let default_groups = vec![
+        ("Women Ministry", "Women's fellowship and ministry activities"),
+        ("Men Ministry", "Men's fellowship and ministry activities"),
+        ("Youth Ministry", "Youth programs and activities for ages 13-30"),
+        ("Children Service", "Children's church and Sunday school"),
+    ];
+
+    for (name, description) in &default_groups {
+        let exists: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM groups WHERE name = ?1",
+            rusqlite::params![name],
+            |row| row.get(0),
+        ).unwrap_or(0);
+        if exists == 0 {
+            let id = uuid::Uuid::new_v4().to_string();
+            conn.execute(
+                "INSERT INTO groups (id, name, description, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                rusqlite::params![id, name, description, now, now],
+            )?;
+            log::info!("Seeded default group: {}", name);
+        }
     }
     Ok(())
 }
@@ -266,6 +295,7 @@ fn create_tables(conn: &Connection) -> Result<()> {
         ("is_baptized", "BOOLEAN NOT NULL DEFAULT 0"),
         ("marital_status", "TEXT"),
         ("emergency_contact", "TEXT"),
+        ("ministry", "TEXT"),
     ];
 
     for (name, col_type) in columns {

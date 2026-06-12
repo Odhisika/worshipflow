@@ -22,7 +22,7 @@ body {
   justify-content: center;
   overflow: hidden;
   color: white;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--presentation-font, 'Segoe UI', system-ui, -apple-system, sans-serif);
   position: relative;
 }
 

@@ -162,13 +162,15 @@ const OutputWindow: React.FC = () => {
     };
   };
 
+  const fontStyle = { '--presentation-font': settings.selectedFont } as React.CSSProperties;
+
   if (isBlank) {
-    return <div className="output-window blank"><div className="drag-handle" data-tauri-drag-region /></div>;
+    return <div className="output-window blank" style={fontStyle}><div className="drag-handle" data-tauri-drag-region /></div>;
   }
 
   if (!isLive || !currentSlide) {
     return (
-      <div className="output-window">
+      <div className="output-window" style={fontStyle}>
         <div className="drag-handle" data-tauri-drag-region />
         <div className="waiting-message">
           {logoUrl ? (
@@ -201,7 +203,7 @@ const OutputWindow: React.FC = () => {
   // Timer slide
   if (currentSlide.slide_type === 'timer') {
     return (
-      <div className={`output-window timer-mode ${isOverrun ? 'overrun' : ''}`}>
+      <div className={`output-window timer-mode ${isOverrun ? 'overrun' : ''}`} style={fontStyle}>
         <div className="drag-handle" data-tauri-drag-region />
         {bgLayer}
         {logoUrl && (
@@ -224,7 +226,7 @@ const OutputWindow: React.FC = () => {
   // Image slide — full-bleed image
   if (currentSlide.slide_type === 'image' && currentSlide.media_path) {
     return (
-      <div className={`output-window style-${settings.presentationStyle}`}>
+      <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
         <div className="drag-handle" data-tauri-drag-region />
         {logoUrl && (
           <div className="church-watermark">
@@ -257,7 +259,7 @@ const OutputWindow: React.FC = () => {
   // Video slide
   if (currentSlide.slide_type === 'video' && currentSlide.media_path) {
     return (
-      <div className={`output-window style-${settings.presentationStyle}`}>
+      <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
         <div className="drag-handle" data-tauri-drag-region />
         <div className="media-slide-display video-slide-display">
           <video
@@ -296,7 +298,7 @@ const OutputWindow: React.FC = () => {
   // Audio slide
   if (currentSlide.slide_type === 'audio' && currentSlide.media_path) {
     return (
-      <div className={`output-window style-${settings.presentationStyle}`}>
+      <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
         <div className="drag-handle" data-tauri-drag-region />
         {bgLayer}
         {logoUrl && (
@@ -336,7 +338,7 @@ const OutputWindow: React.FC = () => {
   // Window capture slide
   if (currentSlide.slide_type === 'capture' && currentSlide.media_path) {
     return (
-      <div className={`output-window style-${settings.presentationStyle}`}>
+      <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
         <div className="drag-handle" data-tauri-drag-region />
         <div className="media-slide-display capture-slide-display">
           <img
@@ -361,7 +363,7 @@ const OutputWindow: React.FC = () => {
   // Bible web slide — display the URL as an iframe
   if (currentSlide.slide_type === 'capture' && !currentSlide.media_path && currentSlide.content.startsWith('http')) {
     return (
-      <div className="output-window web-bible-display">
+      <div className="output-window web-bible-display" style={fontStyle}>
         <div className="drag-handle" data-tauri-drag-region />
         <iframe
           src={currentSlide.content}
@@ -375,7 +377,7 @@ const OutputWindow: React.FC = () => {
 
   // Default: text-based slides (text, song, bible, announcement)
   return (
-    <div className={`output-window style-${settings.presentationStyle}`}>
+    <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
       <div className="drag-handle" data-tauri-drag-region />
       {bgLayer}
 

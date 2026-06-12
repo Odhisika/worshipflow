@@ -72,6 +72,14 @@ impl AttendanceRepository {
         Ok(records)
     }
 
+    pub fn unmark_attendance(conn: &Connection, service_id: &str, member_id: &str) -> AppResult<()> {
+        conn.execute(
+            "DELETE FROM attendance WHERE service_id = ?1 AND member_id = ?2",
+            params![service_id, member_id],
+        )?;
+        Ok(())
+    }
+
     pub fn get_attendance_summary(conn: &Connection, service_id: &str) -> AppResult<ServiceAttendanceSummary> {
         let mut stmt = conn.prepare(
             "SELECT s.id, s.title, s.date,

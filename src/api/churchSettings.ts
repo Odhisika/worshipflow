@@ -8,6 +8,7 @@ export interface ChurchSettings {
   presentationStyle: PresentationStyle;
   tickerEnabled: boolean;
   tickerText: string;  // custom text shown in the news ticker crawl
+  selectedFont: string;  // CSS font-family value for the presentation output
 }
 
 const KEY = 'worshipflow_church_settings';
@@ -18,6 +19,7 @@ const defaults: ChurchSettings = {
   presentationStyle: 'classic',
   tickerEnabled: false,
   tickerText: '',
+  selectedFont: "'Inter', system-ui, -apple-system, sans-serif",
 };
 
 export const churchSettingsApi = {

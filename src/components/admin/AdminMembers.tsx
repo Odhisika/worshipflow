@@ -352,6 +352,7 @@ const AdminMembers: React.FC = () => {
                             <th>Member Details</th>
                             <th>Contact Info</th>
                             <th>Role</th>
+                            <th>Ministry</th>
                             <th>Status</th>
                             <th>Joined</th>
                             <th>Actions</th>
@@ -359,9 +360,9 @@ const AdminMembers: React.FC = () => {
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan={6} className="empty-table">Loading directory...</td></tr>
+                            <tr><td colSpan={7} className="empty-table">Loading directory...</td></tr>
                         ) : filteredMembers.length === 0 ? (
-                            <tr><td colSpan={6} className="empty-table">No members found.</td></tr>
+                            <tr><td colSpan={7} className="empty-table">No members found.</td></tr>
                         ) : filteredMembers.map((member) => (
                             <tr key={member.id}>
                                 <td>
@@ -391,6 +392,21 @@ const AdminMembers: React.FC = () => {
                                     }}>
                                         {member.role.replace('_', ' ')}
                                     </span>
+                                </td>
+                                <td>
+                                    {member.ministry && (
+                                        <span style={{
+                                            fontSize: '0.7rem',
+                                            fontWeight: '600',
+                                            padding: '0.15rem 0.5rem',
+                                            borderRadius: '6px',
+                                            background: 'rgba(99,102,241,0.12)',
+                                            color: '#818cf8',
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            {member.ministry}
+                                        </span>
+                                    )}
                                 </td>
                                 <td>
                                     <span className={`status-badge ${member.status === 'active' ? 'status-active' : 'status-inactive'}`}>

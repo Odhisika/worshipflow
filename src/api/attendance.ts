@@ -38,6 +38,9 @@ export const attendanceApi = {
     markAttendance: async (request: MarkAttendanceRequest): Promise<AttendanceRecord> => {
         return await invoke('mark_attendance', { request });
     },
+    unmarkAttendance: async (serviceId: string, memberId: string): Promise<void> => {
+        return await invoke('unmark_attendance', { serviceId, memberId });
+    },
     getServiceAttendance: async (serviceId: string): Promise<AttendanceRecord[]> => {
         return await invoke('get_service_attendance', { serviceId });
     },

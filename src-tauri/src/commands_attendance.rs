@@ -14,6 +14,16 @@ pub async fn mark_attendance(
 }
 
 #[tauri::command]
+pub async fn unmark_attendance(
+    state: State<'_, AppState>,
+    service_id: String,
+    member_id: String,
+) -> AppResult<()> {
+    let conn = state.db.lock().unwrap();
+    AttendanceRepository::unmark_attendance(&conn, &service_id, &member_id)
+}
+
+#[tauri::command]
 pub async fn get_service_attendance(
     state: State<'_, AppState>,
     service_id: String,

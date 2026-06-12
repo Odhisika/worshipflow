@@ -70,11 +70,12 @@ const AdminAttendance: React.FC = () => {
         if (!selectedServiceId) return;
         const newStatus = nextStatus(currentStatus);
         if (newStatus === null) {
-            await attendanceApi.markAttendance({ service_id: selectedServiceId, member_id: memberId, status: 'absent' });
+            await attendanceApi.unmarkAttendance(selectedServiceId, memberId);
         } else {
             await attendanceApi.markAttendance({ service_id: selectedServiceId, member_id: memberId, status: newStatus });
         }
         triggerRefresh();
+        loadAttendance(selectedServiceId);
     };
 
     const handleBulkMark = async (status: 'present' | 'absent') => {
@@ -85,6 +86,7 @@ const AdminAttendance: React.FC = () => {
             }
         }
         triggerRefresh();
+        loadAttendance(selectedServiceId);
     };
 
     const openCreateService = () => {

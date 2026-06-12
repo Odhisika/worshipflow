@@ -229,6 +229,7 @@ fn main() {
             commands_groups::get_group_members,
             // Attendance commands
             commands_attendance::mark_attendance,
+            commands_attendance::unmark_attendance,
             commands_attendance::get_service_attendance,
             commands_attendance::get_all_member_attendance_for_service,
             commands_attendance::get_attendance_summary,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { presentationApi, PresentationInfo } from '../api/presentation';
 import { songApi, Song, Slide, serviceApi, Service, activityApi, Activity } from '../api';
 import { bibleApi, BibleVerse } from '../api/bible';
@@ -9,7 +9,8 @@ import {
   MdAdd, MdSearch, MdEdit, MdClose, 
   MdPalette, MdBook, MdLibraryMusic, MdImage, MdFolderOpen,
   MdEvent, MdSlideshow, MdTv,
-  MdMovie, MdMusicNote, MdPublic, MdWallpaper, MdCreate, MdLandscape
+  MdMovie, MdMusicNote, MdPublic, MdWallpaper, MdCreate, MdLandscape,
+  MdCheckCircle, MdTextFields
 } from 'react-icons/md';
 import { FiRefreshCw } from 'react-icons/fi';
 import ChurchBrandingModal from './ChurchBrandingModal';
@@ -41,7 +42,7 @@ const PresentationControl: React.FC = () => {
   const [outputWindow, setOutputWindow] = useState<boolean>(false);
   
   // Library Explorer states
-  const [activeTab, setActiveTab] = useState<'songs' | 'bible' | 'media' | 'announcements' | 'capture'>('songs');
+  const [activeTab, setActiveTab] = useState<'songs' | 'bible' | 'media' | 'announcements' | 'capture' | 'fonts'>('songs');
   const [churchSettings, setChurchSettings] = useState<ChurchSettings>(churchSettingsApi.get());
   
   // Library - Songs states
@@ -61,6 +62,12 @@ const PresentationControl: React.FC = () => {
   const [isBibleSearching, setIsBibleSearching] = useState(false);
   const [activeBibleVersion, setActiveBibleVersion] = useState('KJV');
   const [bibleVersions, setBibleVersions] = useState<string[]>([]);
+  const [bibleContext, setBibleContext] = useState<{ book: string; chapter: number; verse: number } | null>(null);
+  const bibleContextRef = useRef(bibleContext);
+  const bibleVersesRef = useRef(bibleVerses);
+  const isAdvancingRef = useRef(false);
+  useEffect(() => { bibleContextRef.current = bibleContext; }, [bibleContext]);
+  useEffect(() => { bibleVersesRef.current = bibleVerses; }, [bibleVerses]);
   
   // Library - Media states
   const [mediaFiles, setMediaFiles] = useState<Array<{ name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' }>>([]);
@@ -178,6 +185,18 @@ const PresentationControl: React.FC = () => {
     }
   }, [selectedBibleVerse]);
 
+  // Reload Bible versions when the Bible tab becomes active
+  useEffect(() => {
+    if (activeTab === 'bible') {
+      loadBibleVersions();
+    }
+  }, [activeTab]);
+
+  // Reload books when version changes (fixes Twi book names)
+  useEffect(() => {
+    loadBibleBooks();
+  }, [activeBibleVersion]);
+
   // Load functions
   const loadServices = async () => {
     try {
@@ -212,10 +231,17 @@ const PresentationControl: React.FC = () => {
   const loadBibleBooks = async () => {
     try {
       await bibleApi.initializeBooks();
-      const books = await bibleApi.getBooks();
+      const books = await bibleApi.getBooks(activeBibleVersion);
       setBibleBooks(books);
       if (books.length > 0 && !selectedBibleBook) {
         setSelectedBibleBook(books[0][0]);
+      } else if (books.length > 0) {
+        const bookExists = books.some(b => b[0] === selectedBibleBook);
+        if (!bookExists) {
+          setSelectedBibleBook(books[0][0]);
+          setSelectedBibleChapter(1);
+          setSelectedBibleVerse(null);
+        }
       }
     } catch (error) {
       console.error('Failed to load bible books:', error);
@@ -276,6 +302,16 @@ const PresentationControl: React.FC = () => {
           await handleNext();
           break;
         case 'ArrowLeft':
+          e.preventDefault();
+          await handlePrevious();
+          break;
+        case 'n':
+        case 'N':
+          e.preventDefault();
+          await handleNextVerse();
+          break;
+        case 'p':
+        case 'P':
           e.preventDefault();
           await handlePrevious();
           break;
@@ -355,7 +391,15 @@ const PresentationControl: React.FC = () => {
     }
   };
 
-
+  const handleRemoveSlide = async (index: number) => {
+    try {
+      const info = await presentationApi.removeSlide(index);
+      setPresentationInfo(info);
+      await loadSlidesList();
+    } catch (error) {
+      console.error('Failed to remove slide:', error);
+    }
+  };
 
   const openOutputWindow = async () => {
     try {
@@ -647,11 +691,38 @@ const PresentationControl: React.FC = () => {
       setLoading(true);
       const info = await presentationApi.addBibleSlide(verse.book, verse.chapter, verse.verse.toString(), verse.text);
       setPresentationInfo(info);
+      setBibleContext({ book: verse.book, chapter: verse.chapter, verse: verse.verse });
       await loadSlidesList();
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNextVerse = async () => {
+    if (isAdvancingRef.current) return;
+    isAdvancingRef.current = true;
+    try {
+      const ctx = bibleContextRef.current;
+      const verses = bibleVersesRef.current;
+      if (!ctx) return;
+      const nextVerse = verses.find(v => v.verse === ctx.verse + 1);
+      if (!nextVerse) {
+        const books = await bibleApi.getBooks(activeBibleVersion);
+        const currentBook = books.find(b => b[0] === ctx.book);
+        if (currentBook && ctx.chapter < currentBook[2]) {
+          const nextChapter = ctx.chapter + 1;
+          const chVerses = await bibleApi.getChapterVerses(ctx.book, nextChapter, activeBibleVersion);
+          if (chVerses.length > 0) {
+            await presentBibleImmediately(chVerses[0]);
+          }
+        }
+        return;
+      }
+      await presentBibleImmediately(nextVerse);
+    } finally {
+      isAdvancingRef.current = false;
     }
   };
 
@@ -666,6 +737,28 @@ const PresentationControl: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Font selection
+  const FONT_OPTIONS = [
+    { name: 'Inter', value: "'Inter', system-ui, -apple-system, sans-serif" },
+    { name: 'Arial', value: "Arial, Helvetica, sans-serif" },
+    { name: 'Georgia', value: "Georgia, 'Times New Roman', serif" },
+    { name: 'Times New Roman', value: "'Times New Roman', Times, serif" },
+    { name: 'Verdana', value: "Verdana, Geneva, sans-serif" },
+    { name: 'Tahoma', value: "Tahoma, Geneva, sans-serif" },
+    { name: 'Trebuchet MS', value: "'Trebuchet MS', 'Lucida Grande', sans-serif" },
+    { name: 'Courier New', value: "'Courier New', Courier, monospace" },
+    { name: 'Comic Sans MS', value: "'Comic Sans MS', cursive, sans-serif" },
+    { name: 'Impact', value: "Impact, Haettenschweiler, sans-serif" },
+    { name: 'Palatino Linotype', value: "'Palatino Linotype', 'Book Antiqua', Palatino, serif" },
+    { name: 'Lucida Console', value: "'Lucida Console', Monaco, monospace" },
+    { name: 'Segoe UI', value: "'Segoe UI', Tahoma, Geneva, sans-serif" },
+  ];
+
+  const handleFontSelect = (fontValue: string) => {
+    const updated = churchSettingsApi.save({ selectedFont: fontValue });
+    setChurchSettings(updated);
   };
 
   const getCssBackgroundStyle = (bg: string | null): React.CSSProperties => {
@@ -846,6 +939,13 @@ const PresentationControl: React.FC = () => {
                             {slide.slide_type === 'image' ? <MdImage size={14} /> : slide.slide_type === 'video' ? <MdMovie size={14} /> : <MdMusicNote size={14} />}
                           </span>
                         )}
+                        <button
+                          className="slide-remove-btn"
+                          onClick={(e) => { e.stopPropagation(); handleRemoveSlide(index); }}
+                          title="Remove slide"
+                        >
+                          <MdClose size={12} />
+                        </button>
                       </div>
                       <div className="slide-item-content">
                         {isMedia ? (
@@ -893,7 +993,7 @@ const PresentationControl: React.FC = () => {
               <MdTv className="panel-icon-live" /> Live Output Monitor
             </h3>
           </div>
-          <div className="live-monitor-box">
+          <div className="live-monitor-box" style={{ '--presentation-font': churchSettings.selectedFont } as React.CSSProperties}>
             {bgLayer}
             {presentationInfo?.is_blank ? (
               <div className="blank-cover">Black Screen Cover Active</div>
@@ -955,6 +1055,12 @@ const PresentationControl: React.FC = () => {
             onClick={() => setActiveTab('announcements')}
           >
             <MdEdit size={18} /> Announcement Slides
+          </button>
+          <button 
+            className={`explorer-tab-btn ${activeTab === 'fonts' ? 'active' : ''}`}
+            onClick={() => setActiveTab('fonts')}
+          >
+            <MdTextFields size={18} /> Fonts
           </button>
           <button 
             className={`explorer-tab-btn ${activeTab === 'capture' ? 'active' : ''}`}
@@ -1150,6 +1256,9 @@ const PresentationControl: React.FC = () => {
                         <MdAdd size={16} /> Add to Schedule
                       </button>
                     </div>
+                    <div className="bible-shortcut-hint">
+                      <strong>Pro tip:</strong> After presenting a verse, press <kbd>N</kbd> for next verse. Press <kbd>P</kbd> to go back to the previous slide.
+                    </div>
                   </div>
                 ) : (
                   <div className="empty-preview-panel">Select a verse to preview</div>
@@ -1261,7 +1370,34 @@ const PresentationControl: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 5: Window Capture & Bible Web */}
+          {/* TAB 5: Fonts */}
+          {activeTab === 'fonts' && (
+            <div className="fonts-tab-container">
+              <div className="fonts-tab-header">
+                <h4><MdTextFields size={18} /> Presentation Font</h4>
+                <p>Choose a font for the presentation output. The selected font will be applied to all text slides, song lyrics, and scripture verses on the projector screen.</p>
+              </div>
+              <div className="fonts-list">
+                {FONT_OPTIONS.map(font => (
+                  <div
+                    key={font.value}
+                    className={`font-option-row ${churchSettings.selectedFont === font.value ? 'selected' : ''}`}
+                    onClick={() => handleFontSelect(font.value)}
+                  >
+                    <div className="font-option-preview" style={{ fontFamily: font.value }}>
+                      <span className="font-option-name">{font.name}</span>
+                      <span className="font-option-sample">The quick brown fox jumps over the lazy dog</span>
+                    </div>
+                    {churchSettings.selectedFont === font.value && (
+                      <MdCheckCircle className="font-check-icon" size={20} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: Window Capture & Bible Web */}
           {activeTab === 'capture' && (
             <div className="capture-tab-container">
               <div className="capture-section">

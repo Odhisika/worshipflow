@@ -3,6 +3,18 @@ use uuid::Uuid;
 use chrono::Utc;
 use crate::models::{Member, MemberRole, MemberStatus, CreateMemberRequest, UpdateMemberRequest};
 
+fn compute_ministry(dob: &Option<String>, gender: &Option<String>, current_year: i32) -> Option<String> {
+    let birth_year = dob.as_ref().and_then(|d| d.split('-').next()?.parse::<i32>().ok())?;
+    let age = current_year - birth_year;
+    match gender.as_deref() {
+        Some("Male") if age >= 31 => Some("Men Ministry".to_string()),
+        Some("Female") if age >= 31 => Some("Women Ministry".to_string()),
+        _ if age >= 13 && age <= 30 => Some("Youth Ministry".to_string()),
+        _ if age < 13 => Some("Children Service".to_string()),
+        _ => None,
+    }
+}
+
 pub struct MemberRepository;
 
 impl MemberRepository {
@@ -10,7 +22,7 @@ impl MemberRepository {
         let mut stmt = conn.prepare(
             "SELECT id, first_name, last_name, email, phone, address, 
                     dob, gender, hometown, occupation, is_baptized, marital_status, emergency_contact,
-                    role, status, joined_at, created_at, updated_at 
+                    role, status, ministry, joined_at, created_at, updated_at 
              FROM members ORDER BY last_name, first_name"
         )?;
 
@@ -31,9 +43,10 @@ impl MemberRepository {
                 emergency_contact: row.get(12)?,
                 role: MemberRole::from_string(&row.get::<_, String>(13)?),
                 status: MemberStatus::from_string(&row.get::<_, String>(14)?),
-                joined_at: row.get::<_, Option<String>>(15)?.map(|s| s.parse().unwrap_or(Utc::now())),
-                created_at: row.get::<_, String>(16)?.parse().unwrap_or(Utc::now()),
-                updated_at: row.get::<_, String>(17)?.parse().unwrap_or(Utc::now()),
+                ministry: row.get::<_, Option<String>>(15)?,
+                joined_at: row.get::<_, Option<String>>(16)?.map(|s| s.parse().unwrap_or(Utc::now())),
+                created_at: row.get::<_, String>(17)?.parse().unwrap_or(Utc::now()),
+                updated_at: row.get::<_, String>(18)?.parse().unwrap_or(Utc::now()),
             })
         })?;
 
@@ -48,7 +61,7 @@ impl MemberRepository {
         conn.query_row(
             "SELECT id, first_name, last_name, email, phone, address, 
                     dob, gender, hometown, occupation, is_baptized, marital_status, emergency_contact,
-                    role, status, joined_at, created_at, updated_at 
+                    role, status, ministry, joined_at, created_at, updated_at 
              FROM members WHERE id = ?1",
             params![id],
             |row| {
@@ -68,9 +81,10 @@ impl MemberRepository {
                     emergency_contact: row.get(12)?,
                     role: MemberRole::from_string(&row.get::<_, String>(13)?),
                     status: MemberStatus::from_string(&row.get::<_, String>(14)?),
-                    joined_at: row.get::<_, Option<String>>(15)?.map(|s| s.parse().unwrap_or(Utc::now())),
-                    created_at: row.get::<_, String>(16)?.parse().unwrap_or(Utc::now()),
-                    updated_at: row.get::<_, String>(17)?.parse().unwrap_or(Utc::now()),
+                    ministry: row.get::<_, Option<String>>(15)?,
+                    joined_at: row.get::<_, Option<String>>(16)?.map(|s| s.parse().unwrap_or(Utc::now())),
+                    created_at: row.get::<_, String>(17)?.parse().unwrap_or(Utc::now()),
+                    updated_at: row.get::<_, String>(18)?.parse().unwrap_or(Utc::now()),
                 })
             }
         )
@@ -81,14 +95,16 @@ impl MemberRepository {
         let now = Utc::now().to_rfc3339();
         let role = req.role.unwrap_or(MemberRole::Member).to_string();
         let status = MemberStatus::Active.to_string();
+        let current_year = Utc::now().format("%Y").to_string().parse::<i32>().unwrap_or(2026);
+        let ministry = req.ministry.clone().or_else(|| compute_ministry(&req.dob, &req.gender, current_year));
 
         conn.execute(
             "INSERT INTO members (
                 id, first_name, last_name, email, phone, address, 
                 dob, gender, hometown, occupation, is_baptized, marital_status, emergency_contact,
-                role, status, joined_at, created_at, updated_at
+                role, status, ministry, joined_at, created_at, updated_at
             )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 id,
                 req.first_name,
@@ -105,6 +121,7 @@ impl MemberRepository {
                 req.emergency_contact,
                 role,
                 status,
+                ministry,
                 now, // Default joined_at to now
                 now,
                 now
@@ -190,6 +207,11 @@ impl MemberRepository {
         if let Some(status) = req.status {
             query.push_str(&format!(", status = ?{}", param_idx));
             params_vec.push(Box::new(status.to_string()));
+            param_idx += 1;
+        }
+        if let Some(ministry) = req.ministry {
+            query.push_str(&format!(", ministry = ?{}", param_idx));
+            params_vec.push(Box::new(ministry));
             param_idx += 1;
         }
 

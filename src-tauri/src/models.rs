@@ -267,6 +267,7 @@ pub struct Member {
     pub emergency_contact: Option<String>,
     pub role: MemberRole,
     pub status: MemberStatus,
+    pub ministry: Option<String>,
     pub joined_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -346,6 +347,7 @@ pub struct CreateMemberRequest {
     pub marital_status: Option<String>,
     pub emergency_contact: Option<String>,
     pub role: Option<MemberRole>,
+    pub ministry: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -364,6 +366,7 @@ pub struct UpdateMemberRequest {
     pub emergency_contact: Option<String>,
     pub role: Option<MemberRole>,
     pub status: Option<MemberStatus>,
+    pub ministry: Option<String>,
 }
 // Finance - Giving Types
 #[derive(Debug, Clone, Serialize, Deserialize)]
