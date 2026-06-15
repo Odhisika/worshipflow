@@ -33,9 +33,11 @@ pub fn import_bible_file(path: &Path) -> AppResult<(String, Vec<VerseRow>)> {
                 parse_osis(path)
             } else if root.to_lowercase() == "bible" {
                 parse_biblica(path)
+            } else if root.to_lowercase() == "usfx" {
+                parse_usfx(path)
             } else {
                 Err(AppError::Unknown(format!(
-                    "Unrecognised XML root element '{}'. Expected XMLBIBLE (Zefania), osis (OSIS), or bible (Biblica/YouVersion).",
+                    "Unrecognised XML root element '{}'. Expected XMLBIBLE (Zefania), osis (OSIS), bible (Biblica/YouVersion), or usfx.",
                     root
                 )))
             }
@@ -614,4 +616,128 @@ fn build_osis_book_map() -> std::collections::HashMap<&'static str, String> {
         ("Rev", "Revelation"),
     ];
     entries.iter().map(|(k, v)| (*k, v.to_string())).collect()
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  USFX parser
+//  Structure: <usfx> → <book id="GEN"> → <c id="1" /> (self-closing)
+//             → <v id="1" bcv="..." />verse text<ve />
+// ─────────────────────────────────────────────────────────────────
+pub fn parse_usfx(path: &Path) -> AppResult<(String, Vec<VerseRow>)> {
+    let content = read_file_with_encoding(path)?;
+    let mut reader = Reader::from_str(&content);
+    reader.config_mut().trim_text(true);
+
+    let mut rows: Vec<VerseRow> = Vec::new();
+    let mut buf = Vec::new();
+
+    let mut version_name = String::from("IMPORTED");
+    let mut current_book = String::new();
+    let mut current_chapter: i32 = 0;
+    let mut current_verse_num: i32 = 0;
+    let mut waiting_verse = false;
+    let mut verse_text = String::new();
+
+    let book_map = build_osis_book_map();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
+                let tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                match local_name(&tag) {
+                    "usfx" => {
+                        // Try to extract version from metadata or use default
+                        for attr in e.attributes().flatten() {
+                            let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if key.to_lowercase().contains("biblename")
+                                || key.to_lowercase().contains("name")
+                            {
+                                let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default();
+                                if !val.is_empty() {
+                                    version_name = val.to_string();
+                                }
+                            }
+                        }
+                    }
+                    "book" => {
+                        for attr in e.attributes().flatten() {
+                            let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if key == "id" {
+                                let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default();
+                                // Map USFX book code to full book name via OSIS map
+                                current_book = book_map
+                                    .get(val.as_ref())
+                                    .cloned()
+                                    .unwrap_or_else(|| val.to_string());
+                            }
+                        }
+                        current_chapter = 0;
+                        waiting_verse = false;
+                    }
+                    "c" => {
+                        for attr in e.attributes().flatten() {
+                            let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if key == "id" {
+                                let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default();
+                                current_chapter = val.parse().unwrap_or(0);
+                            }
+                        }
+                        waiting_verse = false;
+                    }
+                    "v" => {
+                        for attr in e.attributes().flatten() {
+                            let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if key == "id" {
+                                let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default();
+                                current_verse_num = val.parse().unwrap_or(0);
+                            }
+                        }
+                        waiting_verse = true;
+                        verse_text.clear();
+                    }
+                    "ve" => {
+                        if waiting_verse && !current_book.is_empty() {
+                            let text = verse_text.trim().to_string();
+                            if !text.is_empty() {
+                                rows.push((
+                                    current_book.clone(),
+                                    current_chapter,
+                                    current_verse_num,
+                                    text,
+                                    version_name.clone(),
+                                ));
+                            }
+                        }
+                        waiting_verse = false;
+                        verse_text.clear();
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Text(e)) => {
+                if waiting_verse {
+                    if let Ok(t) = e.unescape() {
+                        verse_text.push_str(&t);
+                    }
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                return Err(AppError::Unknown(format!(
+                    "USFX XML parse error: {}",
+                    e
+                )))
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    if rows.is_empty() {
+        return Err(AppError::Unknown(
+            "No verses found in USFX file.".into(),
+        ));
+    }
+
+    Ok((version_name, rows))
 }

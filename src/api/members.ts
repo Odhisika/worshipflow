@@ -24,6 +24,7 @@ export interface Member {
     status: MemberStatus;
     membership_status?: string;
     ministry?: string;
+    photo?: string;
     joined_at?: string;
     created_at: string;
     updated_at: string;
@@ -47,6 +48,7 @@ export interface CreateMemberRequest {
     emergency_contact?: string;
     role?: MemberRole;
     ministry?: string;
+    photo?: string;
 }
 
 export interface UpdateMemberRequest {
@@ -68,6 +70,7 @@ export interface UpdateMemberRequest {
     role?: MemberRole;
     status?: MemberStatus;
     ministry?: string;
+    photo?: string;
 }
 
 export const memberApi = {

@@ -218,6 +218,7 @@ const MediaPlayer: React.FC = () => {
         const onPlay = () => setIsAudioPlaying(true);
         const onPause = () => setIsAudioPlaying(false);
         const onError = () => {
+            if (!currentAudio) return; // Ignore empty/unset source load errors
             const code = el.error?.code;
             termLog('error', 'Audio error event:', {
                 errorCode: code,
@@ -225,11 +226,11 @@ const MediaPlayer: React.FC = () => {
                 networkState: el.networkState,
                 readyState: el.readyState,
                 currentSrc: el.currentSrc,
-                currentAudioPath: currentAudio?.path,
-                hasFallback: !!playableFallbacks[currentAudio?.path ?? ''],
+                currentAudioPath: currentAudio.path,
+                hasFallback: !!playableFallbacks[currentAudio.path],
             });
             // Codes 3 (decode) and 4 (not supported) → try FFmpeg conversion
-            if ((code === 3 || code === 4) && currentAudio && !playableFallbacks[currentAudio.path]) {
+            if ((code === 3 || code === 4) && !playableFallbacks[currentAudio.path]) {
                 void convertAndRetry('audio', currentAudio);
             } else {
                 setPlaybackError(describeMediaError('Audio', el, currentAudio));
@@ -375,6 +376,7 @@ const MediaPlayer: React.FC = () => {
         const onPlay = () => setIsVideoPlaying(true);
         const onPause = () => setIsVideoPlaying(false);
         const onError = () => {
+            if (!currentVideo) return; // Ignore empty/unset source load errors
             const code = el.error?.code;
             termLog('error', 'Video error event:', {
                 errorCode: code,
@@ -382,10 +384,10 @@ const MediaPlayer: React.FC = () => {
                 networkState: el.networkState,
                 readyState: el.readyState,
                 currentSrc: el.currentSrc,
-                currentVideoPath: currentVideo?.path,
-                hasFallback: !!playableFallbacks[currentVideo?.path ?? ''],
+                currentVideoPath: currentVideo.path,
+                hasFallback: !!playableFallbacks[currentVideo.path],
             });
-            if ((code === 3 || code === 4) && currentVideo && !playableFallbacks[currentVideo.path]) {
+            if ((code === 3 || code === 4) && !playableFallbacks[currentVideo.path]) {
                 void convertAndRetry('video', currentVideo);
             } else {
                 setPlaybackError(describeMediaError('Video', el, currentVideo));

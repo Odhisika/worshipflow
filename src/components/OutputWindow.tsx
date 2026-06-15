@@ -18,6 +18,7 @@ const OutputWindow: React.FC = () => {
   const [activeTimerSeconds, setActiveTimerSeconds] = useState<number>(0);
   const [isOverrun, setIsOverrun] = useState(false);
   const [mediaSrc, setMediaSrc] = useState<string>('');
+  const [timerInfo, setTimerInfo] = useState<TimerInfo | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -57,13 +58,12 @@ const OutputWindow: React.FC = () => {
       setIsBlank(state.is_blank);
       setIsLive(state.is_live);
 
-      if (state.current_slide?.slide_type === 'timer') {
-        const tState = await timerApi.getState();
-        if (tState.current_timer) {
-          const remaining = tState.current_timer.duration_seconds - tState.current_timer.elapsed_seconds;
-          setActiveTimerSeconds(Math.abs(remaining));
-          setIsOverrun(tState.current_timer.is_overrun);
-        }
+      const tState = await timerApi.getState();
+      setTimerInfo(tState);
+      if (tState.current_timer) {
+        const remaining = tState.current_timer.duration_seconds - tState.current_timer.elapsed_seconds;
+        setActiveTimerSeconds(Math.abs(remaining));
+        setIsOverrun(tState.current_timer.is_overrun);
       }
     } catch (err) {
       console.error('[OutputWindow] syncState failed:', err);
@@ -113,6 +113,7 @@ const OutputWindow: React.FC = () => {
 
       const unTimer = await listen('timer-updated', (event: any) => {
         const info: TimerInfo = event.payload;
+        setTimerInfo(info);
         if (info.current_timer) {
           const remaining = info.current_timer.duration_seconds - info.current_timer.elapsed_seconds;
           setActiveTimerSeconds(Math.abs(remaining));
@@ -140,6 +141,30 @@ const OutputWindow: React.FC = () => {
       unlisteners.forEach(fn => fn());
     };
   }, [syncState]);
+
+  const TimerBar = () => {
+    if (!timerInfo?.current_timer) return null;
+    const t = timerInfo.current_timer;
+    const remaining = t.duration_seconds - t.elapsed_seconds;
+    const absSecs = Math.abs(remaining);
+    const mins = Math.floor(absSecs / 60);
+    const secs = absSecs % 60;
+    const overrun = t.is_overrun;
+    const progress = Math.min((t.elapsed_seconds / t.duration_seconds) * 100, 100);
+
+    return (
+      <div className={`timer-bar ${overrun ? 'overrun' : ''}`}>
+        <div className="timer-bar-progress" style={{ width: `${progress}%` }} />
+        <div className="timer-bar-content">
+          <span className="timer-bar-name">{t.activity_name}</span>
+          <span className="timer-bar-time">
+            {overrun && <span className="timer-bar-overrun">+</span>}
+            {mins}:{secs.toString().padStart(2, '0')}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -252,6 +277,7 @@ const OutputWindow: React.FC = () => {
             </div>
           </div>
         )}
+        <TimerBar />
       </div>
     );
   }
@@ -291,6 +317,7 @@ const OutputWindow: React.FC = () => {
             {settings.churchName && <span className="watermark-name">{settings.churchName}</span>}
           </div>
         )}
+        <TimerBar />
       </div>
     );
   }
@@ -331,6 +358,7 @@ const OutputWindow: React.FC = () => {
             onCanPlay={() => console.log('[OutputWindow] Audio can play')}
           />
         </div>
+        <TimerBar />
       </div>
     );
   }
@@ -356,6 +384,7 @@ const OutputWindow: React.FC = () => {
             {settings.churchName && <span className="watermark-name">{settings.churchName}</span>}
           </div>
         )}
+        <TimerBar />
       </div>
     );
   }
@@ -371,6 +400,7 @@ const OutputWindow: React.FC = () => {
           title={currentSlide.title || 'Online Bible'}
           sandbox="allow-scripts allow-same-origin allow-forms"
         />
+        <TimerBar />
       </div>
     );
   }
@@ -405,6 +435,7 @@ const OutputWindow: React.FC = () => {
           </div>
         </div>
       )}
+      <TimerBar />
     </div>
   );
 };

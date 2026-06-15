@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { serviceApi, activityApi, Service, Activity, CreateServiceRequest, CreateActivityRequest } from '../api';
 import AppDatePicker from '../components/AppDatePicker';
-import { MdEvent, MdAdd, MdEdit, MdDelete, MdPerson, MdClose } from 'react-icons/md';
+import { MdEvent, MdAdd, MdEdit, MdDelete, MdPerson, MdClose, MdWarning } from 'react-icons/md';
 import './ServiceManager.css';
 
 const ServiceManager: React.FC = () => {
@@ -13,12 +13,13 @@ const ServiceManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [deletingActivity, setDeletingActivity] = useState<Activity | null>(null);
 
   useEffect(() => {
     loadServices();
     if (location.state?.openModal === 'new-service') {
       setShowServiceModal(true);
-      // Clear the state so it doesn't reopen on subsequent internal navigations
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
@@ -55,6 +56,33 @@ const ServiceManager: React.FC = () => {
 
   const getTotalDuration = () => {
     return activities.reduce((sum, activity) => sum + activity.duration_minutes, 0);
+  };
+
+  const handleDeleteActivity = async () => {
+    if (!deletingActivity) return;
+    try {
+      await activityApi.delete(deletingActivity.id);
+      setDeletingActivity(null);
+      if (selectedService) loadActivities(selectedService.id);
+    } catch (error) {
+      console.error('Failed to delete activity:', error);
+    }
+  };
+
+  const handleEditActivity = (activity: Activity) => {
+    setEditingActivity(activity);
+    setShowActivityModal(true);
+  };
+
+  const handleAddActivity = () => {
+    setEditingActivity(null);
+    setShowActivityModal(true);
+  };
+
+  const handleActivityModalSave = () => {
+    if (selectedService) loadActivities(selectedService.id);
+    setShowActivityModal(false);
+    setEditingActivity(null);
   };
 
   return (
@@ -115,7 +143,7 @@ const ServiceManager: React.FC = () => {
                 </div>
                 <button
                   className="btn-primary btn-sm"
-                  onClick={() => setShowActivityModal(true)}
+                  onClick={handleAddActivity}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                 >
                   <MdAdd size={16} /> Add Activity
@@ -148,18 +176,10 @@ const ServiceManager: React.FC = () => {
                         )}
                       </div>
                       <div className="activity-actions">
-                        <button className="btn-icon">
+                        <button className="btn-icon" onClick={() => handleEditActivity(activity)}>
                           <MdEdit size={16} />
                         </button>
-                        <button
-                          className="btn-icon"
-                          onClick={async () => {
-                            if (window.confirm('Delete this activity?')) {
-                              await activityApi.delete(activity.id);
-                              loadActivities(selectedService.id);
-                            }
-                          }}
-                        >
+                        <button className="btn-icon" onClick={() => setDeletingActivity(activity)}>
                           <MdDelete size={16} />
                         </button>
                       </div>
@@ -189,12 +209,30 @@ const ServiceManager: React.FC = () => {
       {showActivityModal && selectedService && (
         <ActivityModal
           serviceId={selectedService.id}
-          onClose={() => setShowActivityModal(false)}
-          onSave={() => {
-            loadActivities(selectedService.id);
-            setShowActivityModal(false);
-          }}
+          editActivity={editingActivity}
+          onClose={() => { setShowActivityModal(false); setEditingActivity(null); }}
+          onSave={handleActivityModalSave}
         />
+      )}
+
+      {deletingActivity && (
+        <div className="modal-overlay" onClick={() => setDeletingActivity(null)}>
+          <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-icon">
+              <MdWarning size={32} color="#f59e0b" />
+            </div>
+            <h2>Delete Activity</h2>
+            <p>Are you sure you want to delete <strong>{deletingActivity.name}</strong>? This action cannot be undone.</p>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setDeletingActivity(null)}>
+                Cancel
+              </button>
+              <button type="button" className="btn-danger" onClick={handleDeleteActivity}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -286,17 +324,19 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ onClose, onSave }) => {
 
 interface ActivityModalProps {
   serviceId: string;
+  editActivity: Activity | null;
   onClose: () => void;
   onSave: () => void;
 }
 
-const ActivityModal: React.FC<ActivityModalProps> = ({ serviceId, onClose, onSave }) => {
+const ActivityModal: React.FC<ActivityModalProps> = ({ serviceId, editActivity, onClose, onSave }) => {
+  const isEditing = editActivity !== null;
   const [formData, setFormData] = useState<CreateActivityRequest>({
     service_id: serviceId,
-    name: '',
-    duration_minutes: 10,
-    leader: '',
-    notes: '',
+    name: editActivity?.name || '',
+    duration_minutes: editActivity?.duration_minutes || 10,
+    leader: editActivity?.leader || '',
+    notes: editActivity?.notes || '',
   });
 
   const activityTemplates = [
@@ -312,10 +352,14 @@ const ActivityModal: React.FC<ActivityModalProps> = ({ serviceId, onClose, onSav
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await activityApi.create(formData);
+      if (isEditing && editActivity) {
+        await activityApi.update(editActivity.id, formData);
+      } else {
+        await activityApi.create(formData);
+      }
       onSave();
     } catch (error) {
-      console.error('Failed to create activity:', error);
+      console.error('Failed to save activity:', error);
     }
   };
 
@@ -323,29 +367,31 @@ const ActivityModal: React.FC<ActivityModalProps> = ({ serviceId, onClose, onSav
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add Activity</h2>
+          <h2>{isEditing ? 'Edit Activity' : 'Add Activity'}</h2>
           <button className="close-btn" onClick={onClose}><MdClose size={20} /></button>
         </div>
 
-        <div className="activity-templates">
-          <p>Quick Templates:</p>
-          <div className="template-buttons">
-            {activityTemplates.map((template, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="btn-template"
-                onClick={() => setFormData({
-                  ...formData,
-                  name: template.name,
-                  duration_minutes: template.duration,
-                })}
-              >
-                {template.name} ({template.duration}m)
-              </button>
-            ))}
+        {!isEditing && (
+          <div className="activity-templates">
+            <p>Quick Templates:</p>
+            <div className="template-buttons">
+              {activityTemplates.map((template, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className="btn-template"
+                  onClick={() => setFormData({
+                    ...formData,
+                    name: template.name,
+                    duration_minutes: template.duration,
+                  })}
+                >
+                  {template.name} ({template.duration}m)
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -395,7 +441,7 @@ const ActivityModal: React.FC<ActivityModalProps> = ({ serviceId, onClose, onSav
               Cancel
             </button>
             <button type="submit" className="btn-primary">
-              Add Activity
+              {isEditing ? 'Save Changes' : 'Add Activity'}
             </button>
           </div>
         </form>

@@ -127,13 +127,14 @@ pub fn perform_bible_import(
     app_handle: &tauri::AppHandle,
     state: &AppState,
 ) -> AppResult<usize> {
-    perform_bible_import_from_file(app_handle, state, "kjv_bible.json")
+    perform_bible_import_from_file(app_handle, state, "kjv_bible.json", None)
 }
 
 pub fn perform_bible_import_from_file(
     app_handle: &tauri::AppHandle,
     state: &AppState,
     filename: &str,
+    version_override: Option<&str>,
 ) -> AppResult<usize> {
     log::info!("Starting Bible import from {}...", filename);
     println!("DEBUG: Starting Bible import from {}...", filename);
@@ -213,8 +214,16 @@ pub fn perform_bible_import_from_file(
         }
         (version, verses)
     } else {
-        // Use bible_importer for XML (Zefania, OSIS, Biblica) etc.
-        bible_importer::import_bible_file(&resource_path)?
+        // Use bible_importer for XML (Zefania, OSIS, Biblica, USFX) etc.
+        let (mut xml_version, mut verses) = bible_importer::import_bible_file(&resource_path)?;
+        // Override version name if provided (used for bundled files with simple names)
+        if let Some(override_name) = version_override {
+            xml_version = override_name.to_string();
+            for v in &mut verses {
+                v.4 = override_name.to_string();
+            }
+        }
+        (xml_version, verses)
     };
 
     let count = verses.len();
@@ -242,7 +251,7 @@ pub async fn import_bible_version_file(
     app_handle: tauri::AppHandle,
     filename: String,
 ) -> AppResult<usize> {
-    perform_bible_import_from_file(&app_handle, &state, &filename)
+    perform_bible_import_from_file(&app_handle, &state, &filename, None)
 }
 
 #[tauri::command]

@@ -236,6 +236,64 @@
   transform: translateY(-1px);
 }
 
+/* Confirmation Modal */
+.confirm-modal {
+  max-width: 420px;
+  text-align: center;
+}
+
+.confirm-modal .confirm-icon {
+  margin-bottom: 1rem;
+}
+
+.confirm-modal h2 {
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+}
+
+.confirm-modal p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.confirm-modal .modal-actions {
+  justify-content: center;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.65rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.65rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 /* React DatePicker Dark Theme */
 .app-datepicker-wrapper .react-datepicker-wrapper {
     width: 100%;

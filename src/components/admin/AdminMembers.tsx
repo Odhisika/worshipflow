@@ -2,16 +2,18 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import {
     MdSearch, MdMoreVert, MdMail, MdPhone,
-    MdDelete, MdPersonAdd, MdBlock, MdCheckCircle, MdEdit, MdFileDownload
+    MdDelete, MdPersonAdd, MdBlock, MdCheckCircle, MdEdit, MdFileDownload, MdPerson
 } from 'react-icons/md';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { fetchChurchAssets, drawChurchHeader, drawFooter } from '../../utils/pdfUtils';
 import AppDatePicker from '../../components/AppDatePicker';
 import { memberApi, Member, MemberRole } from '../../api/members';
 import { saveFileWithDialog } from '../../api/export';
 import { useDataRefresh } from '../../context/DataRefreshContext';
 import ConfirmModal from './ConfirmModal';
+import MemberDetail from './MemberDetail';
 import './AdminViews.css';
 
 const AdminMembers: React.FC = () => {
@@ -25,6 +27,7 @@ const AdminMembers: React.FC = () => {
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
     const [confirmSuspend, setConfirmSuspend] = useState<Member | null>(null);
+    const [viewingMember, setViewingMember] = useState<Member | null>(null);
 
     // Form state for Add/Edit
     const [formData, setFormData] = useState({
@@ -255,10 +258,27 @@ const AdminMembers: React.FC = () => {
         }
         try {
             const doc = new jsPDF();
-            doc.setFontSize(16);
-            doc.text('Membership Directory', 14, 20);
+            const pageW = doc.internal.pageSize.getWidth();
+            const margin = 20;
+
+            const { config } = await fetchChurchAssets();
+            const headerEnd = drawChurchHeader(doc, config, '');
+            let y = headerEnd;
+
+            doc.setFillColor(41, 98, 255);
+            doc.rect(margin, y, pageW - margin * 2, 10, 'F');
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(255, 255, 255);
+            doc.text('MEMBERSHIP DIRECTORY', pageW / 2, y + 7, { align: 'center' });
+            y += 16;
+
+            doc.setTextColor(0, 0, 0);
             doc.setFontSize(10);
-            doc.text(`Exported: ${new Date().toLocaleDateString()}`, 14, 28);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Exported: ${new Date().toLocaleDateString()}`, margin, y);
+            y += 8;
+
             const tableData = members.map(m => [
                 `${m.first_name} ${m.last_name}`,
                 m.email || '-',
@@ -269,10 +289,11 @@ const AdminMembers: React.FC = () => {
             autoTable(doc, {
                 head: [['Name', 'Email', 'Phone', 'Role', 'Status']],
                 body: tableData,
-                startY: 35,
+                startY: y,
                 styles: { fontSize: 8 },
-                headStyles: { fillColor: [26, 115, 232] },
+                headStyles: { fillColor: [41, 98, 255] },
             });
+            drawFooter(doc, pageW);
             const blob = doc.output('blob');
             await saveFileWithDialog('members_directory.pdf', blob);
             toast.success('Members exported to PDF successfully.');
@@ -288,6 +309,23 @@ const AdminMembers: React.FC = () => {
         const suspended = total - active;
         return { total, active, suspended };
     }, [members]);
+
+    const handleViewEdit = (member: Member) => {
+        setViewingMember(null);
+        openEditModal(member);
+    };
+
+    if (viewingMember) {
+        return (
+            <div className="admin-view-container animate-fade-in">
+                <MemberDetail
+                    member={viewingMember}
+                    onBack={() => { setViewingMember(null); fetchMembers(); }}
+                    onEdit={handleViewEdit}
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="admin-view-container animate-fade-in">
@@ -440,6 +478,10 @@ const AdminMembers: React.FC = () => {
                                             flexDirection: 'column',
                                             gap: '2px'
                                         }}>
+                                            <button className="btn-text" style={{ textAlign: 'left', padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => { setActiveMenuId(null); setViewingMember(member); }}>
+                                                <MdPerson size={16} /> View Details
+                                            </button>
+
                                             <button className="btn-text" style={{ textAlign: 'left', padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => openEditModal(member)}>
                                                 <MdEdit size={16} /> Edit Details
                                             </button>

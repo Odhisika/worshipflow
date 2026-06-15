@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { presentationApi, PresentationInfo } from '../api/presentation';
+import { timerApi } from '../api/timer';
 import { songApi, Song, Slide, serviceApi, Service, activityApi, Activity } from '../api';
 import { bibleApi, BibleVerse } from '../api/bible';
 import { listen } from '@tauri-apps/api/event';
@@ -152,10 +153,13 @@ const PresentationControl: React.FC = () => {
     };
   }, []);
 
-  // Update activities when a service is selected
+  // Update activities & load timer when a service is selected
   useEffect(() => {
     if (selectedService) {
       loadActivities(selectedService.id);
+      timerApi.loadService(selectedService.id).catch(err =>
+        console.error('Failed to load service into timer:', err)
+      );
     } else {
       setActivities([]);
     }
@@ -457,6 +461,12 @@ const PresentationControl: React.FC = () => {
         }
       }
       await loadSlidesList();
+      
+      // Start the timer for this activity
+      timerApi.setActivity(activity.id).catch(() => {});
+      timerApi.startActivity().catch(err =>
+        console.error('Failed to start activity timer:', err)
+      );
     } catch (err) {
       console.error('Failed to present activity:', err);
     } finally {

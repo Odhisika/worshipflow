@@ -195,11 +195,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ userEmail }) => {
                     {churchLogo ? (
                         <img src={churchLogo} alt="Church" className="sidebar-logo-img" />
                     ) : (
-                        <div className="logo-icon-small"></div>
+                        <div className="header-logo-fallback"><span>⛪</span></div>
                     )}
-                    <div>
-                        <h2>Church Admin</h2>
-                        <p className="admin-role">System Administrator</p>
+                    <div className="header-branding-text">
+                        <h2 className="header-branding-title">Church Admin</h2>
+                        <p className="header-branding-role">System Administrator</p>
                     </div>
                 </div>
 
@@ -411,9 +411,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ userEmail }) => {
             {/* Main Content Area */}
             <main className="admin-content-area">
                 <header className="admin-header">
-                    {churchLogo && (
-                        <img src={churchLogo} alt="Church" className="header-logo-img" />
-                    )}
                     <div className="header-search" ref={searchRef}>
                         <MdSearch className="search-icon" size={18} />
                         <input
@@ -478,8 +475,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ userEmail }) => {
                         )}
                     </div>
                     <div className="header-actions" ref={profileRef}>
-                        <div className="admin-avatar" onClick={() => setShowProfileDropdown(!showProfileDropdown)}>
-                            {avatarLetter}
+                        <div className="admin-avatar-logo" onClick={() => setShowProfileDropdown(!showProfileDropdown)}>
+                            {churchLogo ? (
+                                <img src={churchLogo} alt="Church" className="avatar-logo-img" />
+                            ) : (
+                                <span className="avatar-logo-fallback">⛪</span>
+                            )}
                         </div>
                         {showProfileDropdown && (
                             <div className="profile-dropdown">

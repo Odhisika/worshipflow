@@ -464,6 +464,72 @@ body {
 }
 
 /* ========================
+   PERSISTENT TIMER COUNTDOWN BAR
+   ======================== */
+
+.timer-bar {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  min-width: 200px;
+}
+
+.timer-bar-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: #10b981;
+  transition: width 0.5s linear;
+}
+
+.timer-bar.overrun .timer-bar-progress {
+  background: #ef4444;
+}
+
+.timer-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 16px 10px;
+}
+
+.timer-bar-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.timer-bar-time {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #10b981;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.timer-bar.overrun .timer-bar-time {
+  color: #ef4444;
+}
+
+.timer-bar-overrun {
+  margin-right: 1px;
+  font-weight: 900;
+}
+
+/* ========================
    KEYFRAMES
    ======================== */
 

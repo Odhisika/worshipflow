@@ -8,14 +8,18 @@ pub struct ReceiptRepository;
 impl ReceiptRepository {
     pub fn get_receipts(conn: &Connection, member_id: Option<&str>) -> Result<Vec<Receipt>> {
         let mut query = String::from(
-            "SELECT id, receipt_number, contribution_id, member_id, amount, date, type, notes, generated_at FROM receipts"
+            "SELECT r.id, r.receipt_number, r.contribution_id, r.member_id,
+                    m.first_name || ' ' || m.last_name as member_name,
+                    r.amount, r.date, r.type, r.notes, r.generated_at
+             FROM receipts r
+             LEFT JOIN members m ON r.member_id = m.id"
         );
         let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
         if let Some(mid) = member_id {
-            query.push_str(&format!(" WHERE member_id = ?{}", params_vec.len() + 1));
+            query.push_str(&format!(" WHERE r.member_id = ?{}", params_vec.len() + 1));
             params_vec.push(Box::new(mid.to_string()));
         }
-        query.push_str(" ORDER BY generated_at DESC");
+        query.push_str(" ORDER BY r.generated_at DESC");
 
         let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
         let mut stmt = conn.prepare(&query)?;
@@ -25,11 +29,12 @@ impl ReceiptRepository {
                 receipt_number: row.get(1)?,
                 contribution_id: row.get(2)?,
                 member_id: row.get(3)?,
-                amount: row.get(4)?,
-                date: row.get(5)?,
-                receipt_type: row.get(6)?,
-                notes: row.get(7)?,
-                generated_at: row.get::<_, String>(8)?.parse().unwrap_or(Utc::now()),
+                member_name: row.get(4)?,
+                amount: row.get(5)?,
+                date: row.get(6)?,
+                receipt_type: row.get(7)?,
+                notes: row.get(8)?,
+                generated_at: row.get::<_, String>(9)?.parse().unwrap_or(Utc::now()),
             })
         })?;
         let mut items = Vec::new();
@@ -55,6 +60,15 @@ impl ReceiptRepository {
             format!("RCP-{}-{:05}", Utc::now().format("%Y%m%d"), count + 1)
         });
 
+        // Look up member name
+        let member_name: Option<String> = member_id.as_ref().and_then(|mid| {
+            conn.query_row(
+                "SELECT first_name || ' ' || last_name FROM members WHERE id = ?1",
+                params![mid],
+                |row| row.get(0),
+            ).ok()
+        });
+
         conn.execute(
             "INSERT INTO receipts (id, receipt_number, contribution_id, member_id, amount, date, type, notes, generated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -66,6 +80,7 @@ impl ReceiptRepository {
             receipt_number,
             contribution_id: Some(req.contribution_id),
             member_id,
+            member_name,
             amount,
             date: contribution_date,
             receipt_type: type_name,

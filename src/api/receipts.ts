@@ -5,6 +5,7 @@ export interface Receipt {
     receipt_number: string;
     contribution_id?: string;
     member_id?: string;
+    member_name?: string;
     amount: number;
     date: string;
     receipt_type: string;

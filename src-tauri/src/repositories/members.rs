@@ -22,7 +22,7 @@ impl MemberRepository {
         "SELECT id, first_name, last_name, email, phone, address, 
                 dob, gender, hometown, occupation, is_baptized, baptism_date, confirmation_date, wedding_date,
                 marital_status, emergency_contact,
-                role, status, membership_status, ministry, joined_at, created_at, updated_at 
+                role, status, membership_status, ministry, photo, joined_at, created_at, updated_at 
          FROM members";
 
     pub fn get_all(conn: &Connection) -> Result<Vec<Member>> {
@@ -55,9 +55,10 @@ impl MemberRepository {
             status: MemberStatus::from_string(&row.get::<_, String>(17)?),
             membership_status: row.get(18)?,
             ministry: row.get::<_, Option<String>>(19)?,
-            joined_at: row.get::<_, Option<String>>(20)?.map(|s| s.parse().unwrap_or(Utc::now())),
-            created_at: row.get::<_, String>(21)?.parse().unwrap_or(Utc::now()),
-            updated_at: row.get::<_, String>(22)?.parse().unwrap_or(Utc::now()),
+            photo: row.get::<_, Option<String>>(20)?,
+            joined_at: row.get::<_, Option<String>>(21)?.map(|s| s.parse().unwrap_or(Utc::now())),
+            created_at: row.get::<_, String>(22)?.parse().unwrap_or(Utc::now()),
+            updated_at: row.get::<_, String>(23)?.parse().unwrap_or(Utc::now()),
         })
     }
 
@@ -79,15 +80,15 @@ impl MemberRepository {
                 id, first_name, last_name, email, phone, address, 
                 dob, gender, hometown, occupation, is_baptized, baptism_date, confirmation_date, wedding_date,
                 marital_status, emergency_contact,
-                role, status, ministry, joined_at, created_at, updated_at
+                role, status, ministry, photo, joined_at, created_at, updated_at
             )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             params![
                 id, req.first_name, req.last_name, req.email, req.phone, req.address,
                 req.dob, req.gender, req.hometown, req.occupation,
                 req.is_baptized.unwrap_or(false), req.baptism_date, req.confirmation_date, req.wedding_date,
                 req.marital_status, req.emergency_contact,
-                role, status, ministry, now, now, now
+                role, status, ministry, req.photo, now, now, now
             ],
         )?;
 
@@ -190,6 +191,11 @@ impl MemberRepository {
         if let Some(ministry) = req.ministry {
             query.push_str(&format!(", ministry = ?{}", param_idx));
             params_vec.push(Box::new(ministry));
+            param_idx += 1;
+        }
+        if let Some(photo) = req.photo {
+            query.push_str(&format!(", photo = ?{}", param_idx));
+            params_vec.push(Box::new(photo));
             param_idx += 1;
         }
 

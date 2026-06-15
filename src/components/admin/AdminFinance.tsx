@@ -8,6 +8,7 @@ import {
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { fetchChurchAssets, drawChurchHeader, drawFooter } from '../../utils/pdfUtils';
 import AppDatePicker from '../../components/AppDatePicker';
 import { saveFileWithDialog } from '../../api/export';
 import { financeApi, GivingType, Contribution, FinanceDashboardStats, MemberTitheSummary, Pledge, MonthlyGivingTrend, YearComparison } from '../../api/finance';
@@ -341,24 +342,43 @@ const AdminFinance: React.FC = () => {
         }
         try {
             const doc = new jsPDF();
-            doc.setFontSize(16);
-            doc.text('Finance Report', 14, 20);
+            const pageW = doc.internal.pageSize.getWidth();
+            const margin = 20;
+
+            const { config } = await fetchChurchAssets();
+            const currency = config.currency || 'Ghc';
+            const headerEnd = drawChurchHeader(doc, config, '');
+            let y = headerEnd;
+
+            doc.setFillColor(41, 98, 255);
+            doc.rect(margin, y, pageW - margin * 2, 10, 'F');
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(255, 255, 255);
+            doc.text('FINANCE REPORT', pageW / 2, y + 7, { align: 'center' });
+            y += 16;
+
+            doc.setTextColor(0, 0, 0);
             doc.setFontSize(10);
-            doc.text(`Period: ${currentMonth}`, 14, 28);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Period: ${currentMonth}`, margin, y);
+            y += 6;
+
             const tableData = contributions.map(c => [
                 c.date,
                 c.type_name || '',
                 c.member_name || 'General',
                 `${c.payment_method || 'Cash'}`,
-                `Ghc ${c.amount.toFixed(2)}`,
+                `${currency} ${c.amount.toFixed(2)}`,
             ]);
             autoTable(doc, {
                 head: [['Date', 'Category', 'Member', 'Method', 'Amount']],
                 body: tableData,
-                startY: 35,
+                startY: y,
                 styles: { fontSize: 7 },
-                headStyles: { fillColor: [26, 115, 232] },
+                headStyles: { fillColor: [41, 98, 255] },
             });
+            drawFooter(doc, pageW);
             const blob = doc.output('blob');
             await saveFileWithDialog('contributions.pdf', blob);
             toast.success('Contributions exported to PDF.');
@@ -372,28 +392,49 @@ const AdminFinance: React.FC = () => {
         try {
             const contribs = await financeApi.getMemberStatement(member.member_id, currentMonth.substring(0, 4));
             const doc = new jsPDF();
-            doc.setFontSize(18);
-            doc.text('Giving Statement', 14, 20);
+            const pageW = doc.internal.pageSize.getWidth();
+            const margin = 20;
+
+            const { config } = await fetchChurchAssets();
+            const currency = config.currency || 'Ghc';
+            const headerEnd = drawChurchHeader(doc, config, '');
+            let y = headerEnd;
+
+            doc.setFillColor(41, 98, 255);
+            doc.rect(margin, y, pageW - margin * 2, 10, 'F');
             doc.setFontSize(11);
-            doc.text(`Member: ${member.member_name}`, 14, 30);
-            doc.text(`Year: ${currentMonth.substring(0, 4)}`, 14, 37);
-            doc.setFontSize(9);
-            doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 44);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(255, 255, 255);
+            doc.text('GIVING STATEMENT', pageW / 2, y + 7, { align: 'center' });
+            y += 16;
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Member: ${member.member_name}`, margin, y);
+            y += 7;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.text(`Year: ${currentMonth.substring(0, 4)}`, margin, y);
+            y += 12;
+
             const tableData = contribs.map(c => [
                 c.date,
                 c.type_name || '',
-                `Ghc ${c.amount.toFixed(2)}`,
+                `${currency} ${c.amount.toFixed(2)}`,
                 c.payment_method || 'Cash',
             ]);
+            const totalAmount = contribs.reduce((s, c) => s + c.amount, 0);
             autoTable(doc, {
                 head: [['Date', 'Category', 'Amount', 'Method']],
                 body: tableData,
-                startY: 50,
+                startY: y,
                 styles: { fontSize: 8 },
-                headStyles: { fillColor: [26, 115, 232] },
-                foot: [[{ content: 'Total', colSpan: 2 }, `Ghc ${contribs.reduce((s, c) => s + c.amount, 0).toFixed(2)}`, '']],
+                headStyles: { fillColor: [41, 98, 255] },
+                foot: [[{ content: 'Total', colSpan: 2 }, `${currency} ${totalAmount.toFixed(2)}`, '']],
                 footStyles: { fontSize: 8, fontStyle: 'bold' },
             });
+            drawFooter(doc, pageW);
             const blob = doc.output('blob');
             await saveFileWithDialog(`${member.member_name.replace(/\s+/g, '_')}_statement.pdf`, blob);
             toast.success(`Statement for ${member.member_name} generated.`);

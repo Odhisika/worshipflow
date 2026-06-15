@@ -296,6 +296,7 @@ fn create_tables(conn: &Connection) -> Result<()> {
         ("marital_status", "TEXT"),
         ("emergency_contact", "TEXT"),
         ("ministry", "TEXT"),
+        ("photo", "TEXT"),
     ];
 
     for (name, col_type) in columns {
