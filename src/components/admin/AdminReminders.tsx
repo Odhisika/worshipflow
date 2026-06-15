@@ -110,10 +110,14 @@ const AutoReminders: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [b, a] = await Promise.all([reminderApi.getUpcomingBirthdays(7), reminderApi.getUpcomingAnniversaries(7)]);
-            setBirthdays(b); setAnniversaries(a);
-        } catch { toast.error('Failed to load.'); }
-        finally { setLoading(false); }
+            const b = await reminderApi.getUpcomingBirthdays(30);
+            setBirthdays(b);
+        } catch (e) { console.error('Birthdays fetch error:', e); }
+        try {
+            const a = await reminderApi.getUpcomingAnniversaries(30);
+            setAnniversaries(a);
+        } catch (e) { console.error('Anniversaries fetch error:', e); }
+        setLoading(false);
     };
     useEffect(() => { fetchData(); }, []);
 

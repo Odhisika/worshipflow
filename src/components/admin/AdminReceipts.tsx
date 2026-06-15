@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { MdReceipt, MdSearch, MdDownload } from 'react-icons/md';
+import jsPDF from 'jspdf';
 import { receiptApi, Receipt } from '../../api/receipts';
 import { financeApi, Contribution } from '../../api/finance';
 import { useDataRefresh } from '../../context/DataRefreshContext';
+import { saveFileWithDialog } from '../../api/export';
 import './AdminViews.css';
 
 const AdminReceipts: React.FC = () => {
@@ -35,6 +37,38 @@ const AdminReceipts: React.FC = () => {
             setSelectedContributionId(null);
             triggerRefresh();
         } catch { toast.error('Failed.'); }
+    };
+
+    const handleDownload = async (receipt: Receipt) => {
+        try {
+            const doc = new jsPDF();
+            const pageW = doc.internal.pageSize.getWidth();
+
+            doc.setFontSize(20);
+            doc.text('CONTRIBUTION RECEIPT', pageW / 2, 30, { align: 'center' });
+
+            doc.setFontSize(10);
+            doc.text(`Receipt #: ${receipt.receipt_number}`, 14, 50);
+            doc.text(`Date: ${new Date(receipt.date).toLocaleDateString()}`, 14, 58);
+            doc.text(`Type: ${receipt.receipt_type}`, 14, 66);
+
+            doc.setDrawColor(200, 200, 200);
+            doc.line(14, 74, pageW - 14, 74);
+
+            doc.setFontSize(12);
+            const displayAmount = `Ghc ${receipt.amount.toFixed(2)}`;
+            doc.text(`Amount: ${displayAmount}`, 14, 86);
+
+            doc.setFontSize(9);
+            doc.text('Thank you for your generous contribution.', pageW / 2, 110, { align: 'center' });
+            doc.text(`Generated: ${new Date().toLocaleString()}`, pageW / 2, 118, { align: 'center' });
+
+            const blob = doc.output('blob');
+            await saveFileWithDialog(`receipt_${receipt.receipt_number}.pdf`, blob);
+            toast.success('Receipt downloaded.');
+        } catch {
+            toast.error('Failed to download receipt.');
+        }
     };
 
     const filteredContributions = contributions.filter(c =>
@@ -90,7 +124,7 @@ const AdminReceipts: React.FC = () => {
                                         <td>{new Date(r.date).toLocaleDateString()}</td>
                                         <td><span className="status-badge status-info">{r.receipt_type}</span></td>
                                         <td>
-                                            <button className="btn-text" title="Download (stub)"><MdDownload /></button>
+                                            <button className="btn-text" title="Download Receipt" onClick={() => handleDownload(r)}><MdDownload /></button>
                                         </td>
                                     </tr>
                                 ))}
