@@ -18,76 +18,52 @@ fn compute_ministry(dob: &Option<String>, gender: &Option<String>, current_year:
 pub struct MemberRepository;
 
 impl MemberRepository {
+    const SELECT: &'static str =
+        "SELECT id, first_name, last_name, email, phone, address, 
+                dob, gender, hometown, occupation, is_baptized, baptism_date, confirmation_date, wedding_date,
+                marital_status, emergency_contact,
+                role, status, membership_status, ministry, joined_at, created_at, updated_at 
+         FROM members";
+
     pub fn get_all(conn: &Connection) -> Result<Vec<Member>> {
-        let mut stmt = conn.prepare(
-            "SELECT id, first_name, last_name, email, phone, address, 
-                    dob, gender, hometown, occupation, is_baptized, marital_status, emergency_contact,
-                    role, status, ministry, joined_at, created_at, updated_at 
-             FROM members ORDER BY last_name, first_name"
-        )?;
-
-        let member_iter = stmt.query_map([], |row| {
-            Ok(Member {
-                id: row.get(0)?,
-                first_name: row.get(1)?,
-                last_name: row.get(2)?,
-                email: row.get(3)?,
-                phone: row.get(4)?,
-                address: row.get(5)?,
-                dob: row.get(6)?,
-                gender: row.get(7)?,
-                hometown: row.get(8)?,
-                occupation: row.get(9)?,
-                is_baptized: row.get(10)?,
-                marital_status: row.get(11)?,
-                emergency_contact: row.get(12)?,
-                role: MemberRole::from_string(&row.get::<_, String>(13)?),
-                status: MemberStatus::from_string(&row.get::<_, String>(14)?),
-                ministry: row.get::<_, Option<String>>(15)?,
-                joined_at: row.get::<_, Option<String>>(16)?.map(|s| s.parse().unwrap_or(Utc::now())),
-                created_at: row.get::<_, String>(17)?.parse().unwrap_or(Utc::now()),
-                updated_at: row.get::<_, String>(18)?.parse().unwrap_or(Utc::now()),
-            })
-        })?;
-
+        let mut stmt = conn.prepare(&format!("{} ORDER BY last_name, first_name", Self::SELECT))?;
+        let member_iter = stmt.query_map([], Self::row_to_member)?;
         let mut members = Vec::new();
-        for member in member_iter {
-            members.push(member?);
-        }
+        for member in member_iter { members.push(member?); }
         Ok(members)
     }
 
+    fn row_to_member(row: &rusqlite::Row) -> Result<Member> {
+        Ok(Member {
+            id: row.get(0)?,
+            first_name: row.get(1)?,
+            last_name: row.get(2)?,
+            email: row.get(3)?,
+            phone: row.get(4)?,
+            address: row.get(5)?,
+            dob: row.get(6)?,
+            gender: row.get(7)?,
+            hometown: row.get(8)?,
+            occupation: row.get(9)?,
+            is_baptized: row.get(10)?,
+            baptism_date: row.get(11)?,
+            confirmation_date: row.get(12)?,
+            wedding_date: row.get(13)?,
+            marital_status: row.get(14)?,
+            emergency_contact: row.get(15)?,
+            role: MemberRole::from_string(&row.get::<_, String>(16)?),
+            status: MemberStatus::from_string(&row.get::<_, String>(17)?),
+            membership_status: row.get(18)?,
+            ministry: row.get::<_, Option<String>>(19)?,
+            joined_at: row.get::<_, Option<String>>(20)?.map(|s| s.parse().unwrap_or(Utc::now())),
+            created_at: row.get::<_, String>(21)?.parse().unwrap_or(Utc::now()),
+            updated_at: row.get::<_, String>(22)?.parse().unwrap_or(Utc::now()),
+        })
+    }
+
     pub fn get_by_id(conn: &Connection, id: &str) -> Result<Member> {
-        conn.query_row(
-            "SELECT id, first_name, last_name, email, phone, address, 
-                    dob, gender, hometown, occupation, is_baptized, marital_status, emergency_contact,
-                    role, status, ministry, joined_at, created_at, updated_at 
-             FROM members WHERE id = ?1",
-            params![id],
-            |row| {
-                Ok(Member {
-                    id: row.get(0)?,
-                    first_name: row.get(1)?,
-                    last_name: row.get(2)?,
-                    email: row.get(3)?,
-                    phone: row.get(4)?,
-                    address: row.get(5)?,
-                    dob: row.get(6)?,
-                    gender: row.get(7)?,
-                    hometown: row.get(8)?,
-                    occupation: row.get(9)?,
-                    is_baptized: row.get(10)?,
-                    marital_status: row.get(11)?,
-                    emergency_contact: row.get(12)?,
-                    role: MemberRole::from_string(&row.get::<_, String>(13)?),
-                    status: MemberStatus::from_string(&row.get::<_, String>(14)?),
-                    ministry: row.get::<_, Option<String>>(15)?,
-                    joined_at: row.get::<_, Option<String>>(16)?.map(|s| s.parse().unwrap_or(Utc::now())),
-                    created_at: row.get::<_, String>(17)?.parse().unwrap_or(Utc::now()),
-                    updated_at: row.get::<_, String>(18)?.parse().unwrap_or(Utc::now()),
-                })
-            }
-        )
+        let query = format!("{} WHERE id = ?1", Self::SELECT);
+        conn.query_row(&query, params![id], Self::row_to_member)
     }
 
     pub fn create(conn: &Connection, req: CreateMemberRequest) -> Result<Member> {
@@ -101,30 +77,17 @@ impl MemberRepository {
         conn.execute(
             "INSERT INTO members (
                 id, first_name, last_name, email, phone, address, 
-                dob, gender, hometown, occupation, is_baptized, marital_status, emergency_contact,
+                dob, gender, hometown, occupation, is_baptized, baptism_date, confirmation_date, wedding_date,
+                marital_status, emergency_contact,
                 role, status, ministry, joined_at, created_at, updated_at
             )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
             params![
-                id,
-                req.first_name,
-                req.last_name,
-                req.email,
-                req.phone,
-                req.address,
-                req.dob,
-                req.gender,
-                req.hometown,
-                req.occupation,
-                req.is_baptized.unwrap_or(false),
-                req.marital_status,
-                req.emergency_contact,
-                role,
-                status,
-                ministry,
-                now, // Default joined_at to now
-                now,
-                now
+                id, req.first_name, req.last_name, req.email, req.phone, req.address,
+                req.dob, req.gender, req.hometown, req.occupation,
+                req.is_baptized.unwrap_or(false), req.baptism_date, req.confirmation_date, req.wedding_date,
+                req.marital_status, req.emergency_contact,
+                role, status, ministry, now, now, now
             ],
         )?;
 
@@ -187,6 +150,21 @@ impl MemberRepository {
         if let Some(is_baptized) = req.is_baptized {
             query.push_str(&format!(", is_baptized = ?{}", param_idx));
             params_vec.push(Box::new(is_baptized));
+            param_idx += 1;
+        }
+        if let Some(ref bd) = req.baptism_date {
+            query.push_str(&format!(", baptism_date = ?{}", param_idx));
+            params_vec.push(Box::new(bd.clone()));
+            param_idx += 1;
+        }
+        if let Some(ref cd) = req.confirmation_date {
+            query.push_str(&format!(", confirmation_date = ?{}", param_idx));
+            params_vec.push(Box::new(cd.clone()));
+            param_idx += 1;
+        }
+        if let Some(ref wd) = req.wedding_date {
+            query.push_str(&format!(", wedding_date = ?{}", param_idx));
+            params_vec.push(Box::new(wd.clone()));
             param_idx += 1;
         }
         if let Some(marital_status) = req.marital_status {
@@ -252,6 +230,15 @@ impl MemberRepository {
         conn.execute(
             "UPDATE members SET status = ?1, updated_at = ?2 WHERE id = ?3",
             params![MemberStatus::Active.to_string(), now, id],
+        )?;
+        Self::get_by_id(conn, id)
+    }
+
+    pub fn set_status(conn: &Connection, id: &str, status: &str) -> Result<Member> {
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE members SET status = ?1, updated_at = ?2 WHERE id = ?3",
+            params![status, now, id],
         )?;
         Self::get_by_id(conn, id)
     }

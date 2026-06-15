@@ -1,5 +1,5 @@
 use crate::error::AppResult;
-use crate::models::{Event, CreateEventRequest, UpdateEventRequest};
+use crate::models::{Event, CreateEventRequest, UpdateEventRequest, EventAttendance, MarkEventAttendanceRequest};
 use crate::repositories::EventRepository;
 use crate::AppState;
 use tauri::State;
@@ -47,4 +47,32 @@ pub async fn delete_event(
 ) -> AppResult<()> {
     let conn = state.db.lock().unwrap();
     EventRepository::delete(&conn, &id)
+}
+
+// --- Event Attendance ---
+#[tauri::command]
+pub async fn get_event_attendance(
+    state: State<'_, AppState>,
+    event_id: String,
+) -> AppResult<Vec<EventAttendance>> {
+    let conn = state.db.lock().unwrap();
+    EventRepository::get_event_attendance(&conn, &event_id)
+}
+
+#[tauri::command]
+pub async fn mark_event_attendance(
+    state: State<'_, AppState>,
+    request: MarkEventAttendanceRequest,
+) -> AppResult<EventAttendance> {
+    let conn = state.db.lock().unwrap();
+    EventRepository::mark_event_attendance(&conn, request)
+}
+
+#[tauri::command]
+pub async fn delete_event_attendance(
+    state: State<'_, AppState>,
+    id: String,
+) -> AppResult<()> {
+    let conn = state.db.lock().unwrap();
+    EventRepository::delete_event_attendance(&conn, &id)
 }

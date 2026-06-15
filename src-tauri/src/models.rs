@@ -263,10 +263,14 @@ pub struct Member {
     pub hometown: Option<String>,
     pub occupation: Option<String>,
     pub is_baptized: bool,
+    pub baptism_date: Option<String>,
+    pub confirmation_date: Option<String>,
+    pub wedding_date: Option<String>,
     pub marital_status: Option<String>,
     pub emergency_contact: Option<String>,
     pub role: MemberRole,
     pub status: MemberStatus,
+    pub membership_status: Option<String>,
     pub ministry: Option<String>,
     pub joined_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
@@ -311,6 +315,9 @@ impl MemberRole {
 #[serde(rename_all = "lowercase")]
 pub enum MemberStatus {
     Active,
+    Inactive,
+    Transferred,
+    Deceased,
     Suspended,
 }
 
@@ -318,6 +325,9 @@ impl ToString for MemberStatus {
     fn to_string(&self) -> String {
         match self {
             MemberStatus::Active => "active".to_string(),
+            MemberStatus::Inactive => "inactive".to_string(),
+            MemberStatus::Transferred => "transferred".to_string(),
+            MemberStatus::Deceased => "deceased".to_string(),
             MemberStatus::Suspended => "suspended".to_string(),
         }
     }
@@ -326,6 +336,9 @@ impl ToString for MemberStatus {
 impl MemberStatus {
     pub fn from_string(s: &str) -> Self {
         match s {
+            "inactive" => MemberStatus::Inactive,
+            "transferred" => MemberStatus::Transferred,
+            "deceased" => MemberStatus::Deceased,
             "suspended" => MemberStatus::Suspended,
             _ => MemberStatus::Active,
         }
@@ -344,6 +357,9 @@ pub struct CreateMemberRequest {
     pub hometown: Option<String>,
     pub occupation: Option<String>,
     pub is_baptized: Option<bool>,
+    pub baptism_date: Option<String>,
+    pub confirmation_date: Option<String>,
+    pub wedding_date: Option<String>,
     pub marital_status: Option<String>,
     pub emergency_contact: Option<String>,
     pub role: Option<MemberRole>,
@@ -362,6 +378,9 @@ pub struct UpdateMemberRequest {
     pub hometown: Option<String>,
     pub occupation: Option<String>,
     pub is_baptized: Option<bool>,
+    pub baptism_date: Option<String>,
+    pub confirmation_date: Option<String>,
+    pub wedding_date: Option<String>,
     pub marital_status: Option<String>,
     pub emergency_contact: Option<String>,
     pub role: Option<MemberRole>,
@@ -599,6 +618,9 @@ pub struct Event {
     pub time: Option<String>,
     pub location: Option<String>,
     pub category: Option<String>,
+    pub is_recurring: bool,
+    pub recurrence_rule: Option<String>,
+    pub recurrence_end: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -611,6 +633,9 @@ pub struct CreateEventRequest {
     pub time: Option<String>,
     pub location: Option<String>,
     pub category: Option<String>,
+    pub is_recurring: Option<bool>,
+    pub recurrence_rule: Option<String>,
+    pub recurrence_end: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -621,6 +646,9 @@ pub struct UpdateEventRequest {
     pub time: Option<String>,
     pub location: Option<String>,
     pub category: Option<String>,
+    pub is_recurring: Option<bool>,
+    pub recurrence_rule: Option<String>,
+    pub recurrence_end: Option<String>,
 }
 
 // Communications
@@ -823,4 +851,484 @@ pub struct CheckInRequest {
 pub struct CheckOutRequest {
     pub check_in_id: String,
     pub security_code: String,
+}
+
+// --- NEW FEATURE MODELS ---
+
+// Budget Categories
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BudgetCategory {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateBudgetCategoryRequest {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+// Budgets
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Budget {
+    pub id: String,
+    pub category_id: String,
+    pub fiscal_year: String,
+    pub allocated_amount: f64,
+    pub spent_amount: f64,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    #[serde(skip_deserializing)]
+    pub category_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateBudgetRequest {
+    pub category_id: String,
+    pub fiscal_year: String,
+    pub allocated_amount: f64,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateBudgetRequest {
+    pub allocated_amount: Option<f64>,
+    pub notes: Option<String>,
+}
+
+// Expense Categories
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpenseCategory {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateExpenseCategoryRequest {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+// Expenses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Expense {
+    pub id: String,
+    pub category_id: String,
+    pub amount: f64,
+    pub date: String,
+    pub payee: Option<String>,
+    pub payment_method: Option<String>,
+    pub notes: Option<String>,
+    pub receipt_path: Option<String>,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_deserializing)]
+    pub category_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateExpenseRequest {
+    pub category_id: String,
+    pub amount: f64,
+    pub date: String,
+    pub payee: Option<String>,
+    pub payment_method: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateExpenseRequest {
+    pub category_id: Option<String>,
+    pub amount: Option<f64>,
+    pub date: Option<String>,
+    pub payee: Option<String>,
+    pub payment_method: Option<String>,
+    pub notes: Option<String>,
+}
+
+// Visitors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Visitor {
+    pub id: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub address: Option<String>,
+    pub gender: Option<String>,
+    pub age_group: Option<String>,
+    pub visited_date: String,
+    pub service_id: Option<String>,
+    pub heard_from: Option<String>,
+    pub prayer_need: Option<String>,
+    pub interest: Option<String>,
+    pub status: String,
+    pub converted_member_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateVisitorRequest {
+    pub first_name: String,
+    pub last_name: String,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub address: Option<String>,
+    pub gender: Option<String>,
+    pub age_group: Option<String>,
+    pub visited_date: String,
+    pub service_id: Option<String>,
+    pub heard_from: Option<String>,
+    pub prayer_need: Option<String>,
+    pub interest: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateVisitorRequest {
+    pub status: Option<String>,
+    pub converted_member_id: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub interest: Option<String>,
+}
+
+// Visitor Follow-ups
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VisitorFollowup {
+    pub id: String,
+    pub visitor_id: String,
+    pub followup_date: String,
+    pub notes: Option<String>,
+    pub status: String,
+    pub assigned_to: Option<String>,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_deserializing)]
+    pub visitor_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateVisitorFollowupRequest {
+    pub visitor_id: String,
+    pub followup_date: String,
+    pub notes: Option<String>,
+    pub assigned_to: Option<String>,
+}
+
+// Event Attendance
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventAttendance {
+    pub id: String,
+    pub event_id: String,
+    pub member_id: Option<String>,
+    pub visitor_id: Option<String>,
+    pub status: String,
+    pub check_in_time: Option<String>,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_deserializing)]
+    pub attendee_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MarkEventAttendanceRequest {
+    pub event_id: String,
+    pub member_id: Option<String>,
+    pub visitor_id: Option<String>,
+    pub status: String,
+}
+
+// Pastoral Care - Visitations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Visitation {
+    pub id: String,
+    pub member_id: Option<String>,
+    pub visitor_id: Option<String>,
+    pub visitation_date: String,
+    pub visitation_type: String,
+    pub notes: Option<String>,
+    pub conducted_by: Option<String>,
+    pub follow_up_needed: bool,
+    pub follow_up_date: Option<String>,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_deserializing)]
+    pub person_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateVisitationRequest {
+    pub member_id: Option<String>,
+    pub visitation_date: String,
+    pub visitation_type: Option<String>,
+    pub notes: Option<String>,
+    pub conducted_by: Option<String>,
+    pub follow_up_needed: Option<bool>,
+    pub follow_up_date: Option<String>,
+}
+
+// Pastoral Care - Prayer Requests
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrayerRequest {
+    pub id: String,
+    pub member_id: Option<String>,
+    pub visitor_id: Option<String>,
+    pub request: String,
+    pub is_anonymous: bool,
+    pub category: Option<String>,
+    pub status: String,
+    pub prayed_for_date: Option<String>,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    #[serde(skip_deserializing)]
+    pub requester_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreatePrayerRequestRequest {
+    pub member_id: Option<String>,
+    pub request: String,
+    pub is_anonymous: Option<bool>,
+    pub category: Option<String>,
+    pub notes: Option<String>,
+}
+
+// Pastoral Care - Counselling Sessions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CounsellingSession {
+    pub id: String,
+    pub member_id: String,
+    pub session_date: String,
+    pub session_type: String,
+    pub notes: Option<String>,
+    pub is_confidential: bool,
+    pub conducted_by: Option<String>,
+    pub follow_up_date: Option<String>,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    #[serde(skip_deserializing)]
+    pub member_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateCounsellingSessionRequest {
+    pub member_id: String,
+    pub session_date: String,
+    pub session_type: String,
+    pub notes: Option<String>,
+    pub is_confidential: Option<bool>,
+    pub conducted_by: Option<String>,
+    pub follow_up_date: Option<String>,
+}
+
+// Announcements
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Announcement {
+    pub id: String,
+    pub title: String,
+    pub content: String,
+    pub category: Option<String>,
+    pub priority: Option<String>,
+    pub start_date: String,
+    pub end_date: Option<String>,
+    pub is_active: bool,
+    pub created_by: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateAnnouncementRequest {
+    pub title: String,
+    pub content: String,
+    pub category: Option<String>,
+    pub priority: Option<String>,
+    pub start_date: String,
+    pub end_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAnnouncementRequest {
+    pub title: Option<String>,
+    pub content: Option<String>,
+    pub category: Option<String>,
+    pub priority: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub is_active: Option<bool>,
+}
+
+// Reminders
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Reminder {
+    pub id: String,
+    pub reminder_type: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub reference_type: Option<String>,
+    pub reference_id: Option<String>,
+    pub scheduled_date: String,
+    pub is_sent: bool,
+    pub sent_at: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+// Receipts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Receipt {
+    pub id: String,
+    pub receipt_number: String,
+    pub contribution_id: Option<String>,
+    pub member_id: Option<String>,
+    pub amount: f64,
+    pub date: String,
+    pub receipt_type: String,
+    pub notes: Option<String>,
+    pub generated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GenerateReceiptRequest {
+    pub contribution_id: String,
+    pub receipt_number: Option<String>,
+}
+
+// Venues
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Venue {
+    pub id: String,
+    pub name: String,
+    pub capacity: Option<i32>,
+    pub location: Option<String>,
+    pub description: Option<String>,
+    pub facilities: Option<String>,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateVenueRequest {
+    pub name: String,
+    pub capacity: Option<i32>,
+    pub location: Option<String>,
+    pub description: Option<String>,
+    pub facilities: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateVenueRequest {
+    pub name: Option<String>,
+    pub capacity: Option<i32>,
+    pub location: Option<String>,
+    pub description: Option<String>,
+    pub facilities: Option<String>,
+    pub is_active: Option<bool>,
+}
+
+// Venue Bookings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VenueBooking {
+    pub id: String,
+    pub venue_id: String,
+    pub event_id: Option<String>,
+    pub booking_date: String,
+    pub start_time: String,
+    pub end_time: String,
+    pub booked_by: Option<String>,
+    pub purpose: Option<String>,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_deserializing)]
+    pub venue_name: Option<String>,
+    #[serde(skip_deserializing)]
+    pub event_title: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateVenueBookingRequest {
+    pub venue_id: String,
+    pub event_id: Option<String>,
+    pub booking_date: String,
+    pub start_time: String,
+    pub end_time: String,
+    pub booked_by: Option<String>,
+    pub purpose: Option<String>,
+}
+
+// Audit Logs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditLog {
+    pub id: String,
+    pub user_id: Option<String>,
+    pub action: String,
+    pub entity_type: String,
+    pub entity_id: Option<String>,
+    pub old_values: Option<String>,
+    pub new_values: Option<String>,
+    pub ip_address: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+// Admin Roles
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminRole {
+    pub id: String,
+    pub admin_id: String,
+    pub role: String,
+    pub permissions: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAdminRoleRequest {
+    pub admin_id: String,
+    pub role: String,
+    pub permissions: Option<String>,
+}
+
+// Budget Dashboard
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BudgetDashboardStats {
+    pub total_budget: f64,
+    pub total_spent: f64,
+    pub remaining: f64,
+}
+
+// Expense Summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpenseSummary {
+    pub category_name: String,
+    pub total: f64,
+}
+
+// Backup Info
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupInfo {
+    pub file_name: String,
+    pub file_size: i64,
+    pub created_at: String,
+}
+
+// Upcoming birthdays/anniversaries
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpcomingBirthday {
+    pub member_id: String,
+    pub member_name: String,
+    pub dob: String,
+    pub age: i32,
+    pub days_until: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpcomingAnniversary {
+    pub member_id: String,
+    pub member_name: String,
+    pub joined_at: String,
+    pub years: i32,
+    pub days_until: i32,
 }

@@ -516,6 +516,382 @@ fn create_tables(conn: &Connection) -> Result<()> {
         [],
     )?;
 
+    // --- NEW FEATURE TABLES ---
+
+    // Migration: Add new columns to members table
+    let new_member_columns = vec![
+        ("baptism_date", "TEXT"),
+        ("confirmation_date", "TEXT"),
+        ("wedding_date", "TEXT"),
+        ("membership_status", "TEXT DEFAULT 'active'"),
+    ];
+
+    for (name, col_type) in new_member_columns {
+        let check_col = format!("SELECT COUNT(*) FROM pragma_table_info('members') WHERE name='{}'", name);
+        let count: i32 = conn.query_row(&check_col, [], |row| row.get(0)).unwrap_or(0);
+        if count == 0 {
+            let alter_query = format!("ALTER TABLE members ADD COLUMN {} {}", name, col_type);
+            conn.execute(&alter_query, [])?;
+            log::info!("Added column {} to members table", name);
+        }
+    }
+
+    // Migration: Add recurring columns to events table
+    let new_event_columns = vec![
+        ("is_recurring", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("recurrence_rule", "TEXT"),
+        ("recurrence_end", "TEXT"),
+    ];
+
+    for (name, col_type) in new_event_columns {
+        let check_col = format!("SELECT COUNT(*) FROM pragma_table_info('events') WHERE name='{}'", name);
+        let count: i32 = conn.query_row(&check_col, [], |row| row.get(0)).unwrap_or(0);
+        if count == 0 {
+            let alter_query = format!("ALTER TABLE events ADD COLUMN {} {}", name, col_type);
+            conn.execute(&alter_query, [])?;
+            log::info!("Added column {} to events table", name);
+        }
+    }
+
+    // Budget Categories
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS budget_categories (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Budgets
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS budgets (
+            id TEXT PRIMARY KEY,
+            category_id TEXT NOT NULL,
+            fiscal_year TEXT NOT NULL,
+            allocated_amount REAL NOT NULL,
+            spent_amount REAL NOT NULL DEFAULT 0,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (category_id) REFERENCES budget_categories(id)
+        )",
+        [],
+    )?;
+
+    // Expense Categories
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS expense_categories (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Expenses
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS expenses (
+            id TEXT PRIMARY KEY,
+            category_id TEXT NOT NULL,
+            amount REAL NOT NULL,
+            date TEXT NOT NULL,
+            payee TEXT,
+            payment_method TEXT DEFAULT 'Cash',
+            notes TEXT,
+            receipt_path TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (category_id) REFERENCES expense_categories(id)
+        )",
+        [],
+    )?;
+
+    // Visitors
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS visitors (
+            id TEXT PRIMARY KEY,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            email TEXT,
+            phone TEXT,
+            address TEXT,
+            gender TEXT,
+            age_group TEXT,
+            visited_date TEXT NOT NULL,
+            service_id TEXT,
+            heard_from TEXT,
+            prayer_need TEXT,
+            interest TEXT,
+            status TEXT NOT NULL DEFAULT 'new',
+            converted_member_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (service_id) REFERENCES services(id),
+            FOREIGN KEY (converted_member_id) REFERENCES members(id)
+        )",
+        [],
+    )?;
+
+    // Visitor Follow-ups
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS visitor_followups (
+            id TEXT PRIMARY KEY,
+            visitor_id TEXT NOT NULL,
+            followup_date TEXT NOT NULL,
+            notes TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            assigned_to TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (visitor_id) REFERENCES visitors(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Event Attendance
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS event_attendance (
+            id TEXT PRIMARY KEY,
+            event_id TEXT NOT NULL,
+            member_id TEXT,
+            visitor_id TEXT,
+            status TEXT NOT NULL DEFAULT 'present',
+            check_in_time TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+            FOREIGN KEY (member_id) REFERENCES members(id),
+            FOREIGN KEY (visitor_id) REFERENCES visitors(id)
+        )",
+        [],
+    )?;
+
+    // Pastoral Care - Visitations
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS visitations (
+            id TEXT PRIMARY KEY,
+            member_id TEXT,
+            visitor_id TEXT,
+            visitation_date TEXT NOT NULL,
+            visitation_type TEXT NOT NULL DEFAULT 'home',
+            notes TEXT,
+            conducted_by TEXT,
+            follow_up_needed BOOLEAN NOT NULL DEFAULT 0,
+            follow_up_date TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (member_id) REFERENCES members(id),
+            FOREIGN KEY (visitor_id) REFERENCES visitors(id)
+        )",
+        [],
+    )?;
+
+    // Pastoral Care - Prayer Requests
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS prayer_requests (
+            id TEXT PRIMARY KEY,
+            member_id TEXT,
+            visitor_id TEXT,
+            request TEXT NOT NULL,
+            is_anonymous BOOLEAN NOT NULL DEFAULT 0,
+            category TEXT DEFAULT 'general',
+            status TEXT NOT NULL DEFAULT 'active',
+            prayed_for_date TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (member_id) REFERENCES members(id),
+            FOREIGN KEY (visitor_id) REFERENCES visitors(id)
+        )",
+        [],
+    )?;
+
+    // Pastoral Care - Counselling Sessions
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS counselling_sessions (
+            id TEXT PRIMARY KEY,
+            member_id TEXT NOT NULL,
+            session_date TEXT NOT NULL,
+            session_type TEXT NOT NULL,
+            notes TEXT,
+            is_confidential BOOLEAN NOT NULL DEFAULT 0,
+            conducted_by TEXT,
+            follow_up_date TEXT,
+            status TEXT NOT NULL DEFAULT 'completed',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (member_id) REFERENCES members(id)
+        )",
+        [],
+    )?;
+
+    // Announcements
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS announcements (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            category TEXT DEFAULT 'general',
+            priority TEXT DEFAULT 'normal',
+            start_date TEXT NOT NULL,
+            end_date TEXT,
+            is_active BOOLEAN NOT NULL DEFAULT 1,
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Reminders / Notifications
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS reminders (
+            id TEXT PRIMARY KEY,
+            reminder_type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            reference_type TEXT,
+            reference_id TEXT,
+            scheduled_date TEXT NOT NULL,
+            is_sent BOOLEAN NOT NULL DEFAULT 0,
+            sent_at TEXT,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Receipts
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS receipts (
+            id TEXT PRIMARY KEY,
+            receipt_number TEXT NOT NULL,
+            contribution_id TEXT,
+            member_id TEXT,
+            amount REAL NOT NULL,
+            date TEXT NOT NULL,
+            type TEXT NOT NULL,
+            notes TEXT,
+            generated_at TEXT NOT NULL,
+            FOREIGN KEY (contribution_id) REFERENCES contributions(id),
+            FOREIGN KEY (member_id) REFERENCES members(id)
+        )",
+        [],
+    )?;
+
+    // Venues / Rooms
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS venues (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            capacity INTEGER,
+            location TEXT,
+            description TEXT,
+            facilities TEXT,
+            is_active BOOLEAN NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Venue Bookings
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS venue_bookings (
+            id TEXT PRIMARY KEY,
+            venue_id TEXT NOT NULL,
+            event_id TEXT,
+            booking_date TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            booked_by TEXT,
+            purpose TEXT,
+            status TEXT NOT NULL DEFAULT 'confirmed',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (venue_id) REFERENCES venues(id),
+            FOREIGN KEY (event_id) REFERENCES events(id)
+        )",
+        [],
+    )?;
+
+    // Audit Logs
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS audit_logs (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            action TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_id TEXT,
+            old_values TEXT,
+            new_values TEXT,
+            ip_address TEXT,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Admin Roles (RBAC)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS admin_roles (
+            id TEXT PRIMARY KEY,
+            admin_id TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'admin',
+            permissions TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Seed default budget categories
+    {
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM budget_categories", [], |row| row.get(0))?;
+        if count == 0 {
+            let now = chrono::Utc::now().to_rfc3339();
+            let cats = vec![
+                ("Worship & Music", "Music instruments, worship resources"),
+                ("Outreach & Missions", "Evangelism and mission trips"),
+                ("Building & Facilities", "Building maintenance and utilities"),
+                ("Administration", "Office supplies and admin costs"),
+                ("Youth & Children", "Youth and children ministry programs"),
+                ("Pastoral Care", "Pastoral ministry resources"),
+                ("Benevolence", "Helping those in need"),
+            ];
+            for (name, desc) in cats {
+                let id = uuid::Uuid::new_v4().to_string();
+                conn.execute(
+                    "INSERT INTO budget_categories (id, name, description, created_at) VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![id, name, desc, now],
+                )?;
+            }
+            log::info!("Seeded default budget categories");
+        }
+    }
+
+    // Seed default expense categories
+    {
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM expense_categories", [], |row| row.get(0))?;
+        if count == 0 {
+            let now = chrono::Utc::now().to_rfc3339();
+            let cats = vec![
+                ("Utilities", "Electricity, water, internet"),
+                ("Salaries & Wages", "Staff salaries and wages"),
+                ("Maintenance", "Building and equipment maintenance"),
+                ("Transport", "Fuel and transport costs"),
+                ("Food & Catering", "Food and refreshments"),
+                ("Office Supplies", "Stationery and office materials"),
+                ("Equipment", "Purchase of equipment and tools"),
+                ("Missions & Outreach", "Mission and outreach expenses"),
+            ];
+            for (name, desc) in cats {
+                let id = uuid::Uuid::new_v4().to_string();
+                conn.execute(
+                    "INSERT INTO expense_categories (id, name, description, created_at) VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![id, name, desc, now],
+                )?;
+            }
+            log::info!("Seeded default expense categories");
+        }
+    }
+
     Ok(())
 }
 

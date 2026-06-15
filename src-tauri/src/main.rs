@@ -27,6 +27,16 @@ mod commands_files;
 mod commands_checkin;
 mod capture;
 mod commands_capture;
+mod commands_pastoral;
+mod commands_visitors;
+mod commands_budget;
+mod commands_announcements;
+mod commands_reminders;
+mod commands_receipts;
+mod commands_venues;
+mod commands_audit;
+mod commands_admin_roles;
+mod commands_backup;
 
 use rusqlite::Connection;
 use std::sync::Mutex;
@@ -286,6 +296,82 @@ fn main() {
             commands_capture::present_image_slide,
             commands_capture::present_video_slide,
             commands_capture::present_audio_slide,
+            // Pastoral Care commands
+            commands_pastoral::get_visitations,
+            commands_pastoral::create_visitation,
+            commands_pastoral::delete_visitation,
+            commands_pastoral::get_prayer_requests,
+            commands_pastoral::create_prayer_request,
+            commands_pastoral::update_prayer_status,
+            commands_pastoral::delete_prayer_request,
+            commands_pastoral::get_counselling_sessions,
+            commands_pastoral::create_counselling_session,
+            commands_pastoral::delete_counselling_session,
+            // Visitor commands
+            commands_visitors::get_visitors,
+            commands_visitors::get_visitor_by_id,
+            commands_visitors::create_visitor,
+            commands_visitors::update_visitor,
+            commands_visitors::delete_visitor,
+            commands_visitors::get_visitor_followups,
+            commands_visitors::create_visitor_followup,
+            commands_visitors::update_followup_status,
+            commands_visitors::delete_visitor_followup,
+            // Budget & Expense commands
+            commands_budget::get_budget_categories,
+            commands_budget::create_budget_category,
+            commands_budget::delete_budget_category,
+            commands_budget::get_budgets,
+            commands_budget::create_budget,
+            commands_budget::update_budget,
+            commands_budget::delete_budget,
+            commands_budget::get_budget_dashboard,
+            commands_budget::get_expense_categories,
+            commands_budget::create_expense_category,
+            commands_budget::delete_expense_category,
+            commands_budget::get_expenses,
+            commands_budget::create_expense,
+            commands_budget::update_expense,
+            commands_budget::delete_expense,
+            commands_budget::get_expense_summaries,
+            // Announcement commands
+            commands_announcements::get_announcements,
+            commands_announcements::create_announcement,
+            commands_announcements::update_announcement,
+            commands_announcements::delete_announcement,
+            // Reminder commands
+            commands_reminders::get_reminders,
+            commands_reminders::create_reminder,
+            commands_reminders::delete_reminder,
+            commands_reminders::get_upcoming_birthdays,
+            commands_reminders::get_upcoming_anniversaries,
+            // Receipt commands
+            commands_receipts::get_receipts,
+            commands_receipts::generate_receipt,
+            commands_receipts::delete_receipt,
+            // Venue commands
+            commands_venues::get_venues,
+            commands_venues::create_venue,
+            commands_venues::update_venue,
+            commands_venues::delete_venue,
+            commands_venues::get_venue_bookings,
+            commands_venues::create_venue_booking,
+            commands_venues::update_booking_status,
+            commands_venues::delete_venue_booking,
+            commands_venues::get_venues_and_bookings,
+            // Audit commands
+            commands_audit::get_audit_logs,
+            commands_audit::clear_audit_logs,
+            // Admin Role commands
+            commands_admin_roles::get_admin_roles,
+            commands_admin_roles::set_admin_role,
+            commands_admin_roles::get_admin_role,
+            // Backup commands
+            commands_backup::backup_database,
+            commands_backup::restore_database,
+            commands_backup::list_backups,
+            // Member status command
+            commands_members::set_member_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

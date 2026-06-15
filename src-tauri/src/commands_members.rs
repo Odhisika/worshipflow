@@ -62,3 +62,13 @@ pub async fn activate_member(state: State<'_, AppState>, id: String) -> AppResul
     let conn = state.db.lock().unwrap();
     MemberRepository::active(&conn, &id).map_err(Into::into)
 }
+
+#[tauri::command]
+pub async fn set_member_status(
+    state: State<'_, AppState>,
+    id: String,
+    status: String,
+) -> AppResult<Member> {
+    let conn = state.db.lock().unwrap();
+    MemberRepository::set_status(&conn, &id, &status).map_err(Into::into)
+}

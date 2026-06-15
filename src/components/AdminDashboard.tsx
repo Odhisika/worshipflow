@@ -4,7 +4,11 @@ import {
     MdDashboard, MdPeople, MdEvent, MdAttachMoney,
     MdSettings, MdLogout, MdGroup, MdCampaign,
     MdPieChart, MdCheckCircle, MdAssignmentInd, MdFactCheck,
-    MdSearch, MdClose, MdKeyboardArrowRight
+    MdSearch, MdClose, MdKeyboardArrowRight,
+    MdFavorite, MdPeopleOutline, MdAccountBalance,
+    MdCampaign as MdAnnouncement, MdMeetingRoom,
+    MdHistory, MdNotifications, MdReceipt, MdBackup,
+    MdAdminPanelSettings
 } from 'react-icons/md';
 import './AdminDashboard.css';
 import { memberApi, Member } from '../api/members';
@@ -26,6 +30,16 @@ import AdminVolunteers from './admin/AdminVolunteers';
 import AdminCheckIn from './admin/AdminCheckIn';
 import AdminReports from './admin/AdminReports';
 import AdminSettings from './admin/AdminSettings';
+import AdminPastoralCare from './admin/AdminPastoralCare';
+import AdminVisitors from './admin/AdminVisitors';
+import AdminBudget from './admin/AdminBudget';
+import AdminAnnouncements from './admin/AdminAnnouncements';
+import AdminVenues from './admin/AdminVenues';
+import AdminAudit from './admin/AdminAudit';
+import AdminReminders from './admin/AdminReminders';
+import AdminReceipts from './admin/AdminReceipts';
+import AdminBackup from './admin/AdminBackup';
+import AdminRoles from './admin/AdminRoles';
 
 interface AdminDashboardProps {
     userEmail?: string;
@@ -146,6 +160,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ userEmail }) => {
                 return <AdminCheckIn />;
             case 'reports':
                 return <AdminReports />;
+            case 'pastoral':
+                return <AdminPastoralCare />;
+            case 'visitors':
+                return <AdminVisitors />;
+            case 'budget':
+                return <AdminBudget />;
+            case 'announcements':
+                return <AdminAnnouncements />;
+            case 'venues':
+                return <AdminVenues />;
+            case 'audit':
+                return <AdminAudit />;
+            case 'reminders':
+                return <AdminReminders />;
+            case 'receipts':
+                return <AdminReceipts />;
+            case 'backup':
+                return <AdminBackup />;
+            case 'adminroles':
+                return <AdminRoles />;
             case 'settings':
                 return <AdminSettings />;
             default:
@@ -214,6 +248,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ userEmail }) => {
                         </li>
                     </ul>
 
+                    <div className="nav-section-title">Care & Growth</div>
+                    <ul>
+                        <li>
+                            <button
+                                className={activeTab === 'pastoral' ? 'active' : ''}
+                                onClick={() => setActiveTab('pastoral')}
+                            >
+                                <MdFavorite className="nav-icon" /> Pastoral Care
+                            </button>
+                        </li>
+                        <li>
+                            <button
+                                className={activeTab === 'visitors' ? 'active' : ''}
+                                onClick={() => setActiveTab('visitors')}
+                            >
+                                <MdPeopleOutline className="nav-icon" /> Visitors
+                            </button>
+                        </li>
+                        <li>
+                            <button
+                                className={activeTab === 'groups' ? 'active' : ''}
+                                onClick={() => setActiveTab('groups')}
+                            >
+                                <MdGroup className="nav-icon" /> Small Groups
+                            </button>
+                        </li>
+                    </ul>
+
                     <div className="nav-section-title">Operations</div>
                     <ul>
                         <li>
@@ -226,10 +288,42 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ userEmail }) => {
                         </li>
                         <li>
                             <button
+                                className={activeTab === 'budget' ? 'active' : ''}
+                                onClick={() => setActiveTab('budget')}
+                            >
+                                <MdAccountBalance className="nav-icon" /> Budget
+                            </button>
+                        </li>
+                        <li>
+                            <button
+                                className={activeTab === 'receipts' ? 'active' : ''}
+                                onClick={() => setActiveTab('receipts')}
+                            >
+                                <MdReceipt className="nav-icon" /> Receipts
+                            </button>
+                        </li>
+                        <li>
+                            <button
                                 className={activeTab === 'comms' ? 'active' : ''}
                                 onClick={() => setActiveTab('comms')}
                             >
                                 <MdCampaign className="nav-icon" /> Communications
+                            </button>
+                        </li>
+                        <li>
+                            <button
+                                className={activeTab === 'announcements' ? 'active' : ''}
+                                onClick={() => setActiveTab('announcements')}
+                            >
+                                <MdAnnouncement className="nav-icon" /> Announcements
+                            </button>
+                        </li>
+                        <li>
+                            <button
+                                className={activeTab === 'venues' ? 'active' : ''}
+                                onClick={() => setActiveTab('venues')}
+                            >
+                                <MdMeetingRoom className="nav-icon" /> Venues
                             </button>
                         </li>
                         <li>
@@ -258,8 +352,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ userEmail }) => {
                         </li>
                     </ul>
 
+                    <div className="nav-section-title">Tools</div>
+                    <ul>
+                        <li>
+                            <button
+                                className={activeTab === 'reminders' ? 'active' : ''}
+                                onClick={() => setActiveTab('reminders')}
+                            >
+                                <MdNotifications className="nav-icon" /> Reminders
+                            </button>
+                        </li>
+                        <li>
+                            <button
+                                className={activeTab === 'audit' ? 'active' : ''}
+                                onClick={() => setActiveTab('audit')}
+                            >
+                                <MdHistory className="nav-icon" /> Audit Log
+                            </button>
+                        </li>
+                        <li>
+                            <button
+                                className={activeTab === 'backup' ? 'active' : ''}
+                                onClick={() => setActiveTab('backup')}
+                            >
+                                <MdBackup className="nav-icon" /> Backup
+                            </button>
+                        </li>
+                    </ul>
+
                     <div className="nav-section-title">System</div>
                     <ul>
+                        <li>
+                            <button
+                                className={activeTab === 'adminroles' ? 'active' : ''}
+                                onClick={() => setActiveTab('adminroles')}
+                            >
+                                <MdAdminPanelSettings className="nav-icon" /> Admin Roles
+                            </button>
+                        </li>
                         <li>
                             <button
                                 className={activeTab === 'settings' ? 'active' : ''}

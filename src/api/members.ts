@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
 export type MemberRole = 'member' | 'youth_leader' | 'mens_leader' | 'deacon' | 'pastor';
-export type MemberStatus = 'active' | 'suspended';
+export type MemberStatus = 'active' | 'inactive' | 'transferred' | 'deceased' | 'suspended';
 
 export interface Member {
     id: string;
@@ -15,10 +15,14 @@ export interface Member {
     hometown?: string;
     occupation?: string;
     is_baptized: boolean;
+    baptism_date?: string;
+    confirmation_date?: string;
+    wedding_date?: string;
     marital_status?: string;
     emergency_contact?: string;
     role: MemberRole;
     status: MemberStatus;
+    membership_status?: string;
     ministry?: string;
     joined_at?: string;
     created_at: string;
@@ -36,6 +40,9 @@ export interface CreateMemberRequest {
     hometown?: string;
     occupation?: string;
     is_baptized?: boolean;
+    baptism_date?: string;
+    confirmation_date?: string;
+    wedding_date?: string;
     marital_status?: string;
     emergency_contact?: string;
     role?: MemberRole;
@@ -53,6 +60,9 @@ export interface UpdateMemberRequest {
     hometown?: string;
     occupation?: string;
     is_baptized?: boolean;
+    baptism_date?: string;
+    confirmation_date?: string;
+    wedding_date?: string;
     marital_status?: string;
     emergency_contact?: string;
     role?: MemberRole;
@@ -69,4 +79,5 @@ export const memberApi = {
     promoteMember: (id: string, role: MemberRole) => invoke<Member>('promote_member', { id, role }),
     suspendMember: (id: string) => invoke<Member>('suspend_member', { id }),
     activateMember: (id: string) => invoke<Member>('activate_member', { id }),
+    setMemberStatus: (id: string, status: MemberStatus) => invoke<Member>('set_member_status', { id, status }),
 };
