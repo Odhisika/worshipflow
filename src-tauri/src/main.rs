@@ -77,24 +77,35 @@ fn main() {
             tauri::async_runtime::spawn(async move {
                 let state = app_handle.state::<AppState>();
 
-                // Clean up old version names that have been simplified
+                // Clean up old version names that have been simplified or replaced
                 {
                     let conn = state.db.lock().unwrap();
-                    let _ = crate::repositories::bible::BibleRepository::delete_version(&conn, "Twi Bible 2020 (Akuapem Twi Nkwa Asɛm)");
+                    let old_names = [
+                        "Twi Bible 2020 (Akuapem Twi Nkwa Asɛm)",
+                        "American Standard Version",
+                        "World English Bible",
+                        "Bible in Basic English",
+                        "Revised Standard Version",
+                        "Asante Twi Bible",
+                        "Twi (Akuapem)",
+                        "Twi (Asante)",
+                    ];
+                    for name in &old_names {
+                        let _ = crate::repositories::bible::BibleRepository::delete_version(&conn, name);
+                    }
                     drop(conn);
                 }
 
+                // All versions now use JSON format (bundled reliably in MSI)
                 let version_files = vec![
                     ("kjv_bible.json", "KJV"),
+                    ("ylt_bible.json", "YLT"),
                     ("web_bible.json", "WEB"),
                     ("asv_bible.json", "ASV"),
-                    ("ylt_bible.json", "YLT"),
-                    ("TwiAkuapemBible.xml", "Twi (Akuapem)"),
-                    ("asv.xml", "ASV"),
-                    ("bbe.xml", "BBE"),
-                    ("web.xml", "WEB"),
-                    ("rsv.xml", "RSV"),
-                    ("twi_asante.xml", "Twi (Asante)"),
+                    ("bbe_bible.json", "BBE"),
+                    ("rsv_bible.json", "RSV"),
+                    ("twi_akuapem_bible.json", "Akuapem Twi"),
+                    ("twi_asante_bible.json", "Asante Twi"),
                 ];
 
                 for (file, label) in &version_files {
@@ -105,23 +116,11 @@ fn main() {
                     };
                     drop(conn);
 
-                    // Force re-import XML files on every launch to pick up parser changes
-                    let should_reimport = already_imported && file.ends_with(".xml");
-
-                    if already_imported && !should_reimport {
+                    if already_imported {
                         println!("DEBUG: {} ({}) already imported, skipping.", label, file);
                     } else {
-                        if should_reimport {
-                            println!("DEBUG: Re-importing {} ({}) (parser might have changed)...", label, file);
-                            let conn = state.db.lock().unwrap();
-                            let _ = crate::repositories::bible::BibleRepository::delete_version(&conn, label);
-                            drop(conn);
-                        } else {
-                            println!("DEBUG: Importing {} ({})...", label, file);
-                        }
-                        // Pass label as version_override for XML files (they declare long internal names)
-                        let override_name = if file.ends_with(".xml") { Some(*label) } else { None };
-                        if let Err(e) = crate::commands_bible::perform_bible_import_from_file(&app_handle, &state, file, override_name) {
+                        println!("DEBUG: Importing {} ({})...", label, file);
+                        if let Err(e) = crate::commands_bible::perform_bible_import_from_file(&app_handle, &state, file, None) {
                             println!("DEBUG ERROR: Failed to import {}: {:?}", file, e);
                         } else {
                             println!("DEBUG: Successfully imported {} ({})", label, file);

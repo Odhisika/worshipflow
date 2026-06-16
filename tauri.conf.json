@@ -11,6 +11,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "fullscreen": false,
         "resizable": true,
         "title": "WorshipFlow Pro",
@@ -18,14 +19,22 @@
         "height": 800,
         "minWidth": 1024,
         "minHeight": 600
+      },
+      {
+        "label": "output",
+        "url": "output.html",
+        "title": "Presentation Output",
+        "visible": false,
+        "fullscreen": false,
+        "decorations": false,
+        "width": 1280,
+        "height": 720,
+        "resizable": true,
+        "skipTaskbar": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: tauri: data: http://asset.localhost https://asset.localhost; media-src 'self' asset: tauri: blob: data: http://asset.localhost https://asset.localhost; video-src 'self' asset: tauri: blob: data: http://asset.localhost https://asset.localhost; audio-src 'self' asset: tauri: blob: data: http://asset.localhost https://asset.localhost; connect-src 'self' ipc: http://localhost:* http://asset.localhost https://asset.localhost;",
-      "assetProtocol": {
-        "enable": true,
-        "scope": ["**"]
-      }
+      "csp": null
     }
   },
   "bundle": {
@@ -33,10 +42,14 @@
     "targets": "all",
     "icon": ["icons/icon.ico"],
     "resources": [
-      "resources/kjv_bible.json",
-      "resources/web_bible.json",
-      "resources/asv_bible.json",
-      "resources/ylt_bible.json"
+      "src-tauri/resources/kjv_bible.json",
+      "src-tauri/resources/ylt_bible.json",
+      "src-tauri/resources/web_bible.json",
+      "src-tauri/resources/asv_bible.json",
+      "src-tauri/resources/bbe_bible.json",
+      "src-tauri/resources/rsv_bible.json",
+      "src-tauri/resources/twi_akuapem_bible.json",
+      "src-tauri/resources/twi_asante_bible.json"
     ]
   }
 }

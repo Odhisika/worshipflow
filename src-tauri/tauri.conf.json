@@ -14,15 +14,13 @@
     "icon": ["../icons/icon.ico"],
     "resources": [
       "resources/kjv_bible.json",
+      "resources/ylt_bible.json",
       "resources/web_bible.json",
       "resources/asv_bible.json",
-      "resources/ylt_bible.json",
-      "resources/TwiAkuapemBible.xml",
-      "resources/asv.xml",
-      "resources/bbe.xml",
-      "resources/web.xml",
-      "resources/rsv.xml",
-      "resources/twi_asante.xml"
+      "resources/bbe_bible.json",
+      "resources/rsv_bible.json",
+      "resources/twi_akuapem_bible.json",
+      "resources/twi_asante_bible.json"
     ]
   },
   "app": {
