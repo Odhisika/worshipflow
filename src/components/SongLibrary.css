@@ -13,13 +13,13 @@
 .search-input {
   width: 100%;
   max-width: 600px;
-  padding: 0.85rem 1.25rem;
-  background-color: var(--bg-tertiary);
+  padding: 0.7rem 1rem;
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
+  border-radius: 8px;
   color: var(--text-primary);
-  font-size: 0.95rem;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease;
 }
 
 .search-input:focus {
@@ -30,23 +30,20 @@
 .song-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
-  padding: 2rem;
+  gap: 1rem;
+  padding: 1.5rem;
 }
 
 .song-card {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 1.25rem;
+  transition: background-color 0.15s ease;
 }
 
 .song-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
-  border-color: var(--accent-blue);
+  background-color: var(--bg-tertiary);
 }
 
 .song-header {
@@ -62,12 +59,13 @@
 }
 
 .song-key {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-size: 0.75rem;
+  background: var(--bg-tertiary);
+  padding: 0.2rem 0.65rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: white;
+  color: var(--accent-blue);
+  border: 1px solid var(--border-color);
 }
 
 .song-preview {
@@ -145,11 +143,8 @@
 }
 
 .modal-header h2 {
-  font-size: 1.5rem;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: 1.25rem;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -243,21 +238,22 @@
 }
 
 .btn-upload {
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+  padding: 0.55rem 1rem;
+  background: var(--accent-blue);
   border: none;
-  border-radius: 0.5rem;
+  border-radius: 8px;
   color: white;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.15s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   text-align: center;
+  font-family: inherit;
+  font-size: 0.85rem;
 }
 
 .btn-upload:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+  background: #1557b0;
 }

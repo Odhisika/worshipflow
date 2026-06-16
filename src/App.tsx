@@ -19,6 +19,8 @@ import { mediaApi } from './api/media';
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
   const [churchSettings, setChurchSettings] = useState<ChurchSettings>(churchSettingsApi.get());
+  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [imageError, setImageError] = useState<boolean>(false);
 
   useEffect(() => {
     const unsub = churchSettingsApi.subscribe(settings => {
@@ -27,24 +29,49 @@ function App() {
     return unsub;
   }, []);
 
+  useEffect(() => {
+    setImageError(false);
+    let active = true;
+    if (churchSettings.churchLogoPath) {
+      mediaApi.getLocalImageUrl(churchSettings.churchLogoPath)
+        .then(url => {
+          if (active) {
+            setLogoUrl(url || '');
+          }
+        })
+        .catch(() => {
+          if (active) setLogoUrl('');
+        });
+    } else {
+      setLogoUrl('');
+    }
+    return () => {
+      active = false;
+    };
+  }, [churchSettings.churchLogoPath]);
+
   return (
     <Router>
       <div className="app">
         <nav className="sidebar">
-          <div className="logo">
-            {churchSettings.churchLogoPath ? (
-              <img 
-                src={mediaApi.getAssetUrl(churchSettings.churchLogoPath)} 
-                alt="Church Logo" 
-                style={{ height: '40px', objectFit: 'contain', marginBottom: '8px' }}
-              />
-            ) : (
-              <h1>WorshipFlow Pro</h1>
-            )}
-            <h2 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginTop: '4px' }}>
+          <div className="sidebar-header">
+            <div className="logo-container">
+              {logoUrl && !imageError ? (
+                <img 
+                  src={logoUrl} 
+                  alt="Church Logo" 
+                  className="sidebar-logo-img"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <h1 className="sidebar-title">WorshipFlow Pro</h1>
+              )}
+            </div>
+            <h2 className="church-name">
               {churchSettings.churchName}
             </h2>
           </div>
+          <div className="sidebar-separator" />
 
           <ul className="nav-menu">
             <li>
@@ -108,7 +135,7 @@ function App() {
               </Link>
             </li>
           </ul>
-
+          <div className="sidebar-separator" />
           <div className="sidebar-footer">
             <button
               className="footer-status admin-btn"
@@ -139,17 +166,17 @@ function App() {
         toastOptions={{
           duration: 4000,
           style: {
-            background: 'var(--bg-card, #1e293b)',
-            color: 'var(--text-primary, #f1f5f9)',
-            border: '1px solid var(--border-light, #334155)',
-            borderRadius: '10px',
+            background: '#383838',
+            color: '#ffffff',
+            border: '1px solid rgba(255, 255, 255, 0.07)',
+            borderRadius: '8px',
             fontSize: '0.9rem',
           },
           success: {
-            iconTheme: { primary: '#10b981', secondary: '#f1f5f9' },
+            iconTheme: { primary: '#10b981', secondary: '#ffffff' },
           },
           error: {
-            iconTheme: { primary: '#ef4444', secondary: '#f1f5f9' },
+            iconTheme: { primary: '#ef4444', secondary: '#ffffff' },
           },
         }}
       />

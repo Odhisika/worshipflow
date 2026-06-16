@@ -1,15 +1,13 @@
 /* Spotify & Netflix Inspired Media Player CSS */
 
 :root {
-    --spotify-black: #000000;
-    --spotify-dark-grey: #121212;
-    --spotify-light-grey: #181818;
-    --spotify-grey: #282828;
+    --spotify-black: #2a2a2a;
+    --spotify-dark-grey: #303030;
+    --spotify-light-grey: #383838;
+    --spotify-grey: #404040;
     --spotify-green: #1db954;
-    --spotify-text: #b3b3b3;
-    --netflix-red: #e50914;
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(255, 255, 255, 0.1);
+    --spotify-text: #dcdcdc;
+    --netflix-red: #ef4444;
 }
 
 .spotify-container {
@@ -179,7 +177,7 @@
 
 /* Main Content */
 .spotify-main {
-    background: linear-gradient(180deg, #222222 0%, #121212 40%);
+    background: var(--bg-secondary);
     border-radius: 8px;
     margin: 0.5rem 0.5rem 0.5rem 0;
     display: flex;

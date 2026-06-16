@@ -1,16 +1,6 @@
 :root {
     --primary-blue: #1a73e8;
     --primary-blue-hover: #1557b0;
-    --bg-darker: #0f0f1e;
-    --bg-card: #1e1e2e;
-    --bg-modal: #1a1a2e;
-    --border-light: rgba(255, 255, 255, 0.08);
-    --text-primary: #ffffff;
-    --text-secondary: #94a3b8;
-    --accent-green: #10b981;
-    --accent-red: #ef4444;
-    --accent-orange: #f59e0b;
-    --primary-blue-light: rgba(26, 115, 232, 0.15);
 }
 
 /* Admin Shared Views Styles */
@@ -26,7 +16,7 @@
     align-items: center;
     margin-bottom: 2.5rem;
     padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .view-header h1 {
@@ -53,7 +43,7 @@
     display: flex;
     align-items: center;
     background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 0.5rem 1rem;
     gap: 0.75rem;
@@ -89,41 +79,36 @@
     background: var(--primary-blue);
     color: white;
     border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 6px;
+    padding: 0.65rem 1.25rem;
+    border-radius: 8px;
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: background-color 0.15s ease;
+    font-family: inherit;
 }
 
 .btn-primary:hover {
     background: var(--primary-blue-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(26, 115, 232, 0.2);
-}
-
-.btn-primary:active {
-    transform: translateY(0);
 }
 
 .btn-primary-small {
     background: var(--primary-blue);
     color: white;
     border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.35rem;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.15s ease;
+    font-family: inherit;
 }
 
 .btn-primary-small:hover {
@@ -133,7 +118,7 @@
 .btn-outline-small {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-color);
     padding: 0.5rem 1rem;
     border-radius: 4px;
     font-weight: 500;
@@ -172,22 +157,18 @@
 }
 
 .member-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-light);
-    border-radius: 12px;
-    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.25rem;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
+    gap: 1rem;
+    transition: background-color 0.15s ease;
 }
 
 .member-card:hover {
-    border-color: var(--primary-blue);
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+    background: var(--bg-tertiary);
 }
 
 .member-card-header {
@@ -270,14 +251,14 @@
 .member-card-footer {
     margin-top: auto;
     padding-top: 1rem;
-    border-top: 1px solid var(--border-light);
+    border-top: 1px solid var(--border-color);
 }
 
 /* Table Design */
 .members-table-container {
-    background: var(--bg-card);
-    border: 1px solid var(--border-light);
-    border-radius: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
     overflow: visible;
 }
 
@@ -286,7 +267,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-color);
     background: rgba(0, 0, 0, 0.1);
 }
 
@@ -308,12 +289,12 @@
     letter-spacing: 0.05em;
     color: var(--text-secondary);
     font-weight: 600;
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .members-table td {
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-color);
     font-size: 0.95rem;
 }
 
@@ -372,15 +353,14 @@
 }
 
 .modal-content {
-    background: var(--bg-modal);
-    border: 1px solid var(--border-light);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     width: 100%;
     max-width: 600px;
     max-height: 90vh;
     overflow-y: auto;
-    border-radius: 12px;
-    padding: 2rem;
-    box-shadow: 0 32px 64px rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    padding: 1.5rem;
 }
 
 /* Hide scrollbar for cleaner look but keep functionality */
@@ -421,7 +401,7 @@
     width: 100%;
     padding: 0.75rem 1rem;
     background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     color: white;
     font-size: 1rem;
@@ -464,7 +444,7 @@
     padding: 0.25rem;
     background: rgba(0, 0, 0, 0.15);
     border-radius: 10px;
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-color);
 }
 
 .tab-bar button {
@@ -490,10 +470,9 @@
 }
 
 .tab-bar button.tab-active {
-    background: var(--bg-card);
+    background: var(--bg-secondary);
     color: var(--text-primary);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-color);
 }
 
 .view-tabs {
@@ -501,7 +480,7 @@
     gap: 1rem;
     margin-bottom: 2rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .tab-btn {
@@ -524,7 +503,6 @@
 .tab-btn.active {
     background: var(--primary-blue);
     color: white;
-    box-shadow: 0 4px 12px rgba(26, 115, 232, 0.25);
 }
 
 .animate-fade-in {
@@ -566,7 +544,7 @@
     width: 100%;
     padding: 0.75rem 1rem;
     background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     color: white;
     font-size: 1rem;
@@ -589,8 +567,8 @@
 }
 
 .react-datepicker {
-    background: var(--bg-modal) !important;
-    border: 1px solid var(--border-light) !important;
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 12px !important;
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5) !important;
     font-family: inherit !important;
@@ -599,7 +577,7 @@
 
 .react-datepicker__header {
     background: rgba(0, 0, 0, 0.2) !important;
-    border-bottom: 1px solid var(--border-light) !important;
+    border-bottom: 1px solid var(--border-color) !important;
     padding-top: 12px !important;
     border-radius: 12px 12px 0 0 !important;
 }
@@ -674,8 +652,8 @@
 
 .react-datepicker__year-dropdown,
 .react-datepicker__month-dropdown {
-    background: var(--bg-modal) !important;
-    border: 1px solid var(--border-light) !important;
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 8px !important;
 }
 
@@ -691,7 +669,7 @@
 
 .react-datepicker__today-button {
     background: rgba(0, 0, 0, 0.2) !important;
-    border-top: 1px solid var(--border-light) !important;
+    border-top: 1px solid var(--border-color) !important;
     color: var(--primary-blue) !important;
     font-weight: 600 !important;
     cursor: pointer !important;

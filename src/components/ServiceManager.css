@@ -14,7 +14,7 @@
   width: 320px;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
-  padding: 2rem 1.5rem;
+  padding: 1.5rem;
   overflow-y: auto;
 }
 
@@ -30,23 +30,22 @@
 }
 
 .service-item {
-  padding: 1.25rem;
+  padding: 1rem;
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.15s ease;
 }
 
 .service-item:hover {
-  border-color: var(--accent-blue);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background-color: var(--bg-active);
+  border-color: var(--border-color);
 }
 
 .service-item.active {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
-  border-color: var(--accent-blue);
+  background-color: rgba(26, 115, 232, 0.1);
+  border-color: rgba(26, 115, 232, 0.3);
 }
 
 .service-date {
@@ -89,12 +88,10 @@
 }
 
 .panel-header h3 {
-  font-size: 1.75rem;
-  margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: 1.5rem;
+  margin-bottom: 0.35rem;
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 .service-info {
@@ -111,33 +108,30 @@
 .activity-card {
   display: flex;
   align-items: start;
-  gap: 1.25rem;
-  padding: 1.5rem;
+  gap: 1rem;
+  padding: 1.25rem;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 1rem;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
 }
 
 .activity-card:hover {
-  border-color: var(--accent-blue);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.15);
+  background-color: var(--bg-tertiary);
 }
 
 .activity-number {
   flex-shrink: 0;
-  width: 2.5rem;
-  height: 2.5rem;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  width: 2.25rem;
+  height: 2.25rem;
+  background: var(--accent-blue);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 1rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font-size: 0.85rem;
+  color: white;
 }
 
 .activity-content {
@@ -157,12 +151,12 @@
 }
 
 .activity-duration {
-  background: linear-gradient(135deg, var(--accent-green), #059669);
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-size: 0.75rem;
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
   font-weight: 600;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
 .activity-leader {
@@ -231,9 +225,8 @@
 
 .btn-template:hover {
   border-color: var(--accent-blue);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(92, 92, 246, 0.1));
-  color: white;
-  transform: translateY(-1px);
+  background: rgba(26, 115, 232, 0.1);
+  color: var(--text-primary);
 }
 
 /* Confirmation Modal */
