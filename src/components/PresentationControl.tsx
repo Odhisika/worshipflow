@@ -4,6 +4,7 @@ import { timerApi } from '../api/timer';
 import { songApi, Song, Slide, serviceApi, Service, activityApi, Activity } from '../api';
 import { bibleApi, BibleVerse } from '../api/bible';
 import { listen, emitTo } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import { 
   MdMonitor, MdPlayArrow, MdStop, MdSkipNext, 
   MdSkipPrevious, MdVisibilityOff, MdDelete, 
@@ -11,9 +12,10 @@ import {
   MdPalette, MdBook, MdLibraryMusic, MdImage, MdFolderOpen,
   MdEvent, MdSlideshow, MdTv,
   MdMovie, MdMusicNote, MdPublic, MdWallpaper, MdCreate, MdLandscape,
-  MdCheckCircle, MdTextFields
+  MdCheckCircle, MdTextFields, MdFormatAlignLeft, MdFormatAlignCenter, MdFormatAlignRight,
+  MdFormatBold, MdFormatItalic
 } from 'react-icons/md';
-import { FiRefreshCw } from 'react-icons/fi';
+import { FiRefreshCw, FiHeart } from 'react-icons/fi';
 import ChurchBrandingModal from './ChurchBrandingModal';
 import { churchSettingsApi, ChurchSettings } from '../api/churchSettings';
 import { mediaApi } from '../api/media';
@@ -29,6 +31,7 @@ type SavedTextSlide = {
 };
 
 const SAVED_SLIDES_KEY = 'worshipflow_saved_text_slides';
+const FAVORITES_KEY = 'worshipflow_favorite_media_paths';
 
 const PresentationControl: React.FC = () => {
   // Service & Schedule states
@@ -101,6 +104,12 @@ const PresentationControl: React.FC = () => {
     } catch { return []; }
   });
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<SavedTextSlide | null>(null);
+  const [favoritePaths, setFavoritePaths] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(FAVORITES_KEY);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
 
   useEffect(() => {
     loadServices();
@@ -586,6 +595,35 @@ const PresentationControl: React.FC = () => {
     }
   };
 
+  // Save Image to disk
+  const handleSaveImage = async (file: { name: string; path: string }) => {
+    try {
+      const bytes = await invoke<number[]>('read_file_bytes', { path: file.path });
+      if (!bytes || bytes.length === 0) {
+        alert('Failed to read image file.');
+        return;
+      }
+      await invoke('save_file', { filename: file.name, data: Uint8Array.from(bytes) });
+    } catch (err: any) {
+      console.error('Failed to save image:', err);
+      alert(`Save failed: ${err}`);
+    }
+  };
+
+  // Toggle favorite media
+  const toggleFavorite = (path: string) => {
+    setFavoritePaths(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  };
+
   // Window Capture handlers
   const handleListWindows = async () => {
     setIsListingWindows(true);
@@ -749,23 +787,44 @@ const PresentationControl: React.FC = () => {
 
   // Font selection
   const FONT_OPTIONS = [
-    { name: 'Inter', value: "'Inter', system-ui, -apple-system, sans-serif" },
-    { name: 'Arial', value: "Arial, Helvetica, sans-serif" },
-    { name: 'Georgia', value: "Georgia, 'Times New Roman', serif" },
-    { name: 'Times New Roman', value: "'Times New Roman', Times, serif" },
-    { name: 'Verdana', value: "Verdana, Geneva, sans-serif" },
-    { name: 'Tahoma', value: "Tahoma, Geneva, sans-serif" },
-    { name: 'Trebuchet MS', value: "'Trebuchet MS', 'Lucida Grande', sans-serif" },
-    { name: 'Courier New', value: "'Courier New', Courier, monospace" },
-    { name: 'Comic Sans MS', value: "'Comic Sans MS', cursive, sans-serif" },
-    { name: 'Impact', value: "Impact, Haettenschweiler, sans-serif" },
-    { name: 'Palatino Linotype', value: "'Palatino Linotype', 'Book Antiqua', Palatino, serif" },
-    { name: 'Lucida Console', value: "'Lucida Console', Monaco, monospace" },
+    { name: 'Inter', value: "'Inter', 'Segoe UI', Tahoma, Geneva, sans-serif" },
+    { name: 'Arial', value: "Arial, Helvetica, 'Segoe UI', Tahoma, Geneva, sans-serif" },
+    { name: 'Georgia', value: "Georgia, 'Times New Roman', 'Segoe UI', Tahoma, Geneva, serif" },
+    { name: 'Times New Roman', value: "'Times New Roman', Times, 'Segoe UI', Tahoma, Geneva, serif" },
+    { name: 'Verdana', value: "Verdana, Geneva, 'Segoe UI', Tahoma, sans-serif" },
+    { name: 'Tahoma', value: "Tahoma, Geneva, 'Segoe UI', sans-serif" },
+    { name: 'Trebuchet MS', value: "'Trebuchet MS', 'Lucida Grande', 'Segoe UI', Tahoma, Geneva, sans-serif" },
+    { name: 'Courier New', value: "'Courier New', Courier, 'Segoe UI', Tahoma, Geneva, monospace" },
+    { name: 'Comic Sans MS', value: "'Comic Sans MS', cursive, 'Segoe UI', Tahoma, Geneva, sans-serif" },
+    { name: 'Impact', value: "Impact, Haettenschweiler, 'Segoe UI', Tahoma, Geneva, sans-serif" },
+    { name: 'Palatino Linotype', value: "'Palatino Linotype', 'Book Antiqua', Palatino, 'Segoe UI', Tahoma, Geneva, serif" },
+    { name: 'Lucida Console', value: "'Lucida Console', Monaco, 'Segoe UI', Tahoma, Geneva, monospace" },
     { name: 'Segoe UI', value: "'Segoe UI', Tahoma, Geneva, sans-serif" },
   ];
 
   const handleFontSelect = (fontValue: string) => {
     const updated = churchSettingsApi.save({ selectedFont: fontValue });
+    setChurchSettings(updated);
+  };
+
+  const handleFontSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    const updated = churchSettingsApi.save({ fontSize: val });
+    setChurchSettings(updated);
+  };
+
+  const handleTextAlignChange = (align: 'left' | 'center' | 'right') => {
+    const updated = churchSettingsApi.save({ textAlign: align });
+    setChurchSettings(updated);
+  };
+
+  const handleBoldToggle = () => {
+    const updated = churchSettingsApi.save({ fontBold: !churchSettings.fontBold });
+    setChurchSettings(updated);
+  };
+
+  const handleItalicToggle = () => {
+    const updated = churchSettingsApi.save({ fontItalic: !churchSettings.fontItalic });
     setChurchSettings(updated);
   };
 
@@ -1041,7 +1100,7 @@ const PresentationControl: React.FC = () => {
               ✕
             </button>
           </div>
-          <div className="live-monitor-box" style={{ '--presentation-font': churchSettings.selectedFont } as React.CSSProperties}>
+          <div className="live-monitor-box" style={{ '--presentation-font': churchSettings.selectedFont, '--presentation-font-scale': churchSettings.fontSize, '--presentation-text-align': churchSettings.textAlign, ...(churchSettings.fontBold ? { '--presentation-font-weight': 'bold' } : {}), ...(churchSettings.fontItalic ? { '--presentation-font-style': 'italic' } : {}) } as React.CSSProperties}>
             {bgLayer}
             {presentationInfo?.is_blank ? (
               <div className="blank-cover">Black Screen Cover Active</div>
@@ -1343,6 +1402,26 @@ const PresentationControl: React.FC = () => {
                   </button>
                 </div>
                 <div className="pane-items-list scrollable">
+                  {mediaFiles.filter(f => f.mediaType === mediaTypeFilter && favoritePaths.has(f.path)).length > 0 && (
+                    <>
+                      <div className="media-section-divider">
+                        <FiHeart size={12} /> Favorites
+                      </div>
+                      {mediaFiles.filter(f => f.mediaType === mediaTypeFilter && favoritePaths.has(f.path)).map((m, idx) => (
+                        <div 
+                          key={`fav-${idx}`} 
+                          className={`pane-item-row ${selectedMediaFile?.path === m.path ? 'selected' : ''}`}
+                          onClick={() => setSelectedMediaFile(m)}
+                        >
+                          <div className="pane-item-info">
+                            <strong>{m.name}</strong>
+                            <span>★ Favorite {m.mediaType}</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="media-section-divider">All {mediaTypeFilter === 'image' ? 'Images' : mediaTypeFilter === 'video' ? 'Videos' : 'Audio'}</div>
+                    </>
+                  )}
                   {mediaFiles.filter(f => f.mediaType === mediaTypeFilter).length > 0 ? (
                     mediaFiles.filter(f => f.mediaType === mediaTypeFilter).map((m, idx) => (
                       <div 
@@ -1352,7 +1431,7 @@ const PresentationControl: React.FC = () => {
                       >
                         <div className="pane-item-info">
                           <strong>{m.name}</strong>
-                          <span>Uploaded {m.mediaType}</span>
+                          <span>{favoritePaths.has(m.path) ? '★ Favorite' : 'Uploaded ' + m.mediaType}</span>
                         </div>
                       </div>
                     ))
@@ -1407,6 +1486,17 @@ const PresentationControl: React.FC = () => {
                       <button className="preview-action-btn" onClick={() => addMediaToSchedule(selectedMediaFile)}>
                         <MdAdd size={16} /> Add to Schedule
                       </button>
+                      {selectedMediaFile.mediaType === 'image' && (
+                        <button className="preview-action-btn" onClick={() => handleSaveImage(selectedMediaFile)}>
+                          Save Image
+                        </button>
+                      )}
+                      <button
+                        className={`preview-action-btn ${favoritePaths.has(selectedMediaFile.path) ? 'btn-fav-active' : ''}`}
+                        onClick={() => toggleFavorite(selectedMediaFile.path)}
+                      >
+                        <FiHeart size={14} fill={favoritePaths.has(selectedMediaFile.path) ? 'currentColor' : 'none'} /> {favoritePaths.has(selectedMediaFile.path) ? 'Favorited' : 'Favorite'}
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -1418,11 +1508,77 @@ const PresentationControl: React.FC = () => {
 
           {/* TAB 5: Fonts */}
           {activeTab === 'fonts' && (
-            <div className="fonts-tab-container">
+              <div className="fonts-tab-container">
               <div className="fonts-tab-header">
                 <h4><MdTextFields size={18} /> Presentation Font</h4>
                 <p>Choose a font for the presentation output. The selected font will be applied to all text slides, song lyrics, and scripture verses on the projector screen.</p>
               </div>
+
+              <div className="font-controls-row">
+                <div className="font-size-control">
+                  <label>Font Size</label>
+                  <div className="font-size-slider-row">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={churchSettings.fontSize}
+                      onChange={handleFontSizeChange}
+                      className="font-size-slider"
+                    />
+                    <span className="font-size-value">{Math.round(churchSettings.fontSize * 100)}%</span>
+                  </div>
+                </div>
+
+                <div className="text-align-control">
+                  <label>Alignment</label>
+                  <div className="text-align-buttons">
+                    <button
+                      className={`align-btn ${churchSettings.textAlign === 'left' ? 'active' : ''}`}
+                      onClick={() => handleTextAlignChange('left')}
+                      title="Align Left"
+                    >
+                      <MdFormatAlignLeft size={18} />
+                    </button>
+                    <button
+                      className={`align-btn ${churchSettings.textAlign === 'center' ? 'active' : ''}`}
+                      onClick={() => handleTextAlignChange('center')}
+                      title="Align Center"
+                    >
+                      <MdFormatAlignCenter size={18} />
+                    </button>
+                    <button
+                      className={`align-btn ${churchSettings.textAlign === 'right' ? 'active' : ''}`}
+                      onClick={() => handleTextAlignChange('right')}
+                      title="Align Right"
+                    >
+                      <MdFormatAlignRight size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="font-style-control">
+                  <label>Style</label>
+                  <div className="font-style-buttons">
+                    <button
+                      className={`style-btn ${churchSettings.fontBold ? 'active' : ''}`}
+                      onClick={handleBoldToggle}
+                      title="Toggle Bold"
+                    >
+                      <MdFormatBold size={18} />
+                    </button>
+                    <button
+                      className={`style-btn ${churchSettings.fontItalic ? 'active' : ''}`}
+                      onClick={handleItalicToggle}
+                      title="Toggle Italic"
+                    >
+                      <MdFormatItalic size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="fonts-list">
                 {FONT_OPTIONS.map(font => (
                   <div
@@ -1596,6 +1752,14 @@ const PresentationControl: React.FC = () => {
                       </button>
                       <button className="preview-action-btn" onClick={() => addAnnouncementToSchedule(selectedAnnouncement)}>
                         <MdAdd size={16} /> Add to Schedule
+                      </button>
+                      <button className="preview-action-btn" onClick={() => {
+                        setCustomTextTitle(selectedAnnouncement.title);
+                        setCustomTextContent(selectedAnnouncement.content);
+                        setEditingSavedSlideId(selectedAnnouncement.id);
+                        setShowTextModal(true);
+                      }}>
+                        <MdEdit size={16} /> Edit
                       </button>
                       <button className="preview-action-btn btn-danger-outline" onClick={() => {
                         const updated = savedTextSlides.filter(s => s.id !== selectedAnnouncement.id);

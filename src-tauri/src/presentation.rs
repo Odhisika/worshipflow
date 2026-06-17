@@ -164,13 +164,23 @@ pub fn generate_presentation_info(presentation: &PresentationState) -> Presentat
     }
 }
 
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+     .replace('<', "&lt;")
+     .replace('>', "&gt;")
+     .replace('"', "&quot;")
+     .replace('\'', "&#39;")
+}
+
 // Helper functions for slide generation
 pub fn generate_song_slides(lyrics: &str, title: &str) -> Vec<Slide> {
     let mut slides = Vec::new();
     let mut slide_count = 0;
 
+    // Normalize Windows line endings so split("\n\n") works on all platforms
+    let normalized = lyrics.replace("\r\n", "\n");
     // Split lyrics by double line breaks (stanzas)
-    let sections: Vec<&str> = lyrics.split("\n\n").collect();
+    let sections: Vec<&str> = normalized.split("\n\n").collect();
 
     for section in sections {
         let section = section.trim();
@@ -198,14 +208,14 @@ pub fn generate_song_slides(lyrics: &str, title: &str) -> Vec<Slide> {
         let content = if let Some(label) = &label_display {
             let body_html = body_lines
                 .iter()
-                .map(|l| format!("<div class=\"verse-line\">{}</div>", l))
+                .map(|l| format!("<div class=\"verse-line\">{}</div>", html_escape(l)))
                 .collect::<Vec<_>>()
                 .join("");
-            format!("<div class=\"stanza-wrap\"><div class=\"stanza-label\">{}</div><div class=\"stanza-body\">{}</div></div>", label, body_html)
+            format!("<div class=\"stanza-wrap\"><div class=\"stanza-label\">{}</div><div class=\"stanza-body\">{}</div></div>", html_escape(label), body_html)
         } else {
             body_lines
                 .iter()
-                .map(|l| format!("<div class=\"verse-line\">{}</div>", l))
+                .map(|l| format!("<div class=\"verse-line\">{}</div>", html_escape(l)))
                 .collect::<Vec<_>>()
                 .join("")
         };

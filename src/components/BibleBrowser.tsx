@@ -448,7 +448,7 @@ const BibleBrowser: React.FC = () => {
               </button>
 
               <h2 className="chapter-title" style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
-                {selectedBook} {chapter}
+                {selectedBook}
               </h2>
 
               <div className="chapter-selector">
@@ -500,6 +500,24 @@ const BibleBrowser: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Chapter filter grid — Books | Chapters | Verses */}
+          {selectedBook && (
+            <div className="chapter-filter-bar">
+              <div className="chapter-filter-label">Chapters</div>
+              <div className="chapter-filter-list">
+                {Array.from({ length: maxChapters }, (_, i) => i + 1).map(ch => (
+                  <button
+                    key={ch}
+                    className={`chapter-filter-btn${ch === chapter ? ' active' : ''}`}
+                    onClick={() => setChapter(ch)}
+                  >
+                    {ch}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div
             className="reader-content"

@@ -9,6 +9,10 @@ export interface ChurchSettings {
   tickerEnabled: boolean;
   tickerText: string;  // custom text shown in the news ticker crawl
   selectedFont: string;  // CSS font-family value for the presentation output
+  fontSize: number;  // font-size multiplier 0.5–2.0, default 1.0
+  textAlign: 'left' | 'center' | 'right';  // text alignment on output screen
+  fontBold: boolean;  // bold toggle for presentation text
+  fontItalic: boolean;  // italic toggle for presentation text
 }
 
 const KEY = 'worshipflow_church_settings';
@@ -19,7 +23,11 @@ const defaults: ChurchSettings = {
   presentationStyle: 'classic',
   tickerEnabled: false,
   tickerText: '',
-  selectedFont: "'Inter', system-ui, -apple-system, sans-serif",
+  selectedFont: "'Inter', 'Segoe UI', Tahoma, Geneva, sans-serif",
+  fontSize: 1.0,
+  textAlign: 'center',
+  fontBold: false,
+  fontItalic: false,
 };
 
 export const churchSettingsApi = {

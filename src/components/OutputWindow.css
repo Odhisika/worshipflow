@@ -22,7 +22,7 @@ body {
   justify-content: center;
   overflow: hidden;
   color: white;
-  font-family: var(--presentation-font, 'Segoe UI', system-ui, -apple-system, sans-serif);
+  font-family: var(--presentation-font, 'Inter'), 'Segoe UI', Tahoma, Geneva, sans-serif;
   position: relative;
 }
 
@@ -215,14 +215,16 @@ body {
 }
 
 .output-content {
-  font-size: clamp(2rem, 4.5vw, 6rem);
+  font-size: calc(clamp(2rem, 4.5vw, 6rem) * var(--presentation-font-scale, 1));
   line-height: 1.75;
   white-space: pre-line;
   max-width: 90%;
   max-height: 70vh;
   overflow: hidden;
-  font-weight: 400;
+  font-weight: var(--presentation-font-weight, 400);
+  font-style: var(--presentation-font-style, normal);
   color: #f0f4ff;
+  text-align: var(--presentation-text-align, center);
 }
 
 /* ========================
@@ -235,9 +237,9 @@ body {
 }
 
 .slide-song .output-content {
-  font-size: clamp(1.8rem, 4vw, 5.5rem);
+  font-size: calc(clamp(1.8rem, 4vw, 5.5rem) * var(--presentation-font-scale, 1));
   line-height: 1.7;
-  font-weight: 500;
+  font-weight: var(--presentation-font-weight, 500);
 }
 
 .slide-song .output-content .stanza-wrap {
@@ -266,7 +268,7 @@ body {
 .slide-song .output-content .stanza-body .verse-line,
 .slide-song .output-content .verse-line {
   display: block;
-  text-align: center;
+  text-align: var(--presentation-text-align, center);
   padding: 0.05em 0;
 }
 
@@ -277,9 +279,10 @@ body {
 }
 
 .slide-bible .output-content {
-  font-size: clamp(1.6rem, 3.5vw, 5rem);
+  font-size: calc(clamp(1.6rem, 3.5vw, 5rem) * var(--presentation-font-scale, 1));
   line-height: 1.8;
-  font-style: italic;
+  font-weight: var(--presentation-font-weight, 400);
+  font-style: var(--presentation-font-style, normal);
   color: #e8eeff;
 }
 
@@ -290,9 +293,9 @@ body {
 }
 
 .slide-text .output-content {
-  font-size: clamp(1.8rem, 4vw, 5.5rem);
+  font-size: calc(clamp(1.8rem, 4vw, 5.5rem) * var(--presentation-font-scale, 1));
   line-height: 1.8;
-  font-weight: 700;
+  font-weight: var(--presentation-font-weight, 700);
   color: #e8eeff;
 }
 
@@ -302,8 +305,8 @@ body {
 }
 
 .slide-announcement .output-content {
-  font-size: clamp(2rem, 4.5vw, 6rem);
-  font-weight: 700;
+  font-size: calc(clamp(2rem, 4.5vw, 6rem) * var(--presentation-font-scale, 1));
+  font-weight: var(--presentation-font-weight, 700);
   color: #10b981;
 }
 

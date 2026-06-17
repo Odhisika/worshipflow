@@ -23,8 +23,10 @@ pub async fn create_song(
     state: State<'_, AppState>,
     request: CreateSongRequest,
 ) -> AppResult<Song> {
+    let mut req = request;
+    req.lyrics = req.lyrics.replace("\r\n", "\n");
     let conn = state.db.lock().unwrap();
-    SongRepository::create(&conn, request)
+    SongRepository::create(&conn, req)
 }
 
 #[tauri::command]
@@ -59,8 +61,10 @@ pub async fn update_song(
     id: String,
     request: CreateSongRequest,
 ) -> AppResult<Song> {
+    let mut req = request;
+    req.lyrics = req.lyrics.replace("\r\n", "\n");
     let conn = state.db.lock().unwrap();
-    SongRepository::update(&conn, &id, request)
+    SongRepository::update(&conn, &id, req)
 }
 
 #[tauri::command]
@@ -184,9 +188,11 @@ pub async fn import_song_from_content(
     tags: Option<Vec<String>>,
     collection_id: Option<String>,
 ) -> AppResult<Song> {
+    // Normalize Windows line endings so presentation splits work correctly
+    let normalized_content = content.replace("\r\n", "\n");
     let request = CreateSongRequest {
         title,
-        lyrics: content,
+        lyrics: normalized_content,
         key: None,
         tempo: None,
         tags: tags.or_else(|| Some(vec![])),

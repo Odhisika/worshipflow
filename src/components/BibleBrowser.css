@@ -287,6 +287,72 @@
   text-align: center;
 }
 
+/* Chapter filter bar — Books | Chapters | Verses layout */
+.chapter-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1.5rem;
+  background: rgba(15, 23, 42, 0.15);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.chapter-filter-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.chapter-filter-list {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  flex: 1;
+  padding: 0.15rem 0;
+  scrollbar-width: thin;
+}
+
+.chapter-filter-list::-webkit-scrollbar {
+  height: 3px;
+}
+
+.chapter-filter-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.chapter-filter-btn {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.chapter-filter-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-blue);
+}
+
+.chapter-filter-btn.active {
+  background: var(--accent-blue);
+  color: white;
+  border-color: var(--accent-blue);
+}
+
 .reader-content {
   flex: 1;
   overflow-y: auto;

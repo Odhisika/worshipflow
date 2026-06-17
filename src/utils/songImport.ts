@@ -1,5 +1,67 @@
 import * as mammoth from 'mammoth';
 
+function normalizeLineEndings(text: string): string {
+  // Normalize all line endings to \n
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+/**
+ * Strips RTF control sequences and extracts plain text content.
+ */
+function stripRTF(rtf: string): string {
+  // Remove RTF header and group braces
+  let text = rtf
+    // Remove RTF header up to first {
+    .replace(/^[\s\S]*?\{/, '{')
+    // Remove RTF font tables, color tables, etc. {\fonttbl ... }
+    .replace(/\{\\fonttbl[\s\S]*?\}/g, '')
+    .replace(/\{\\colortbl[\s\S]*?\}/g, '')
+    .replace(/\{\\stylesheet[\s\S]*?\}/g, '')
+    .replace(/\{\\list[\s\S]*?\}/g, '')
+    .replace(/\{\\listoverride[\s\S]*?\}/g, '')
+    .replace(/\{\\\*[\s\S]*?\}/g, '')
+    // Remove control words (backslash + word)
+    .replace(/\\([a-z]+)(-?\d+)?/gi, '')
+    // Remove braces
+    .replace(/[\{\}]/g, '')
+    // Handle hex escapes like \'e9
+    .replace(/\\'([0-9a-fA-F]{2})/g, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16)))
+    // Remove remaining backslashes
+    .replace(/\\/g, '')
+    // Handle \par (paragraph break) -> \n
+    // Handle \line (line break) -> \n
+    // These were in the original format but may have been stripped by
+    // the control word removal. Check for actual \n\n from \par\par etc.
+    .trim();
+
+  // Normalize multiple newlines
+  text = text.replace(/\n{3,}/g, '\n\n');
+  return text;
+}
+
+function parseRTF(file: File): Promise<ParsedSong[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = reader.result as string;
+        let plain = stripRTF(text);
+        let title = file.name
+          .replace(/\.[^/.]+$/, '')
+          .replace(/[-_]/g, ' ')
+          .replace(/\b\w/g, c => c.toUpperCase());
+        resolve([{ title, lyrics: normalizeLineEndings(plain) }]);
+      } catch (err: any) {
+        reject(new Error(`Failed to parse RTF: ${err.message}`));
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read RTF file'));
+    // Read as text — RTF is ASCII-compatible
+    reader.readAsText(file);
+  });
+}
+
 export interface ParsedSong {
   title: string;
   lyrics: string;
@@ -237,29 +299,71 @@ async function parseDOCX(file: File): Promise<ParsedSong[]> {
   return [{ title, lyrics: normalized }];
 }
 
+/**
+ * Reads a file as text with robust encoding detection.
+ * Handles BOM markers (UTF-8, UTF-16 LE/BE) and falls back
+ * to Windows-1252 if strict UTF-8 decoding fails.
+ */
+async function readFileWithEncoding(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  // UTF-16 LE BOM
+  if (bytes[0] === 0xFF && bytes[1] === 0xFE) {
+    return new TextDecoder('utf-16le').decode(buffer);
+  }
+  // UTF-16 BE BOM
+  if (bytes[0] === 0xFE && bytes[1] === 0xFF) {
+    return new TextDecoder('utf-16be').decode(buffer);
+  }
+
+  // Strip UTF-8 BOM if present
+  const offset = (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) ? 3 : 0;
+
+  // Use non-fatal UTF-8 decoding — replaces invalid bytes with �
+  // rather than corrupting multi-byte characters with Windows-1252 fallback
+  const utf8Decoder = new TextDecoder('utf-8', { fatal: false });
+  return utf8Decoder.decode(buffer.slice(offset));
+}
+
 export async function parseSongFile(file: File): Promise<ParsedSong[]> {
   const ext = file.name.split('.').pop()?.toLowerCase();
 
+  let result: ParsedSong[];
   switch (ext) {
     case 'csv': {
-      const text = await file.text();
-      return parseCSV(text);
+      const text = await readFileWithEncoding(file);
+      result = parseCSV(text);
+      break;
     }
     case 'json': {
-      const text = await file.text();
-      return parseJSON(text);
+      const text = await readFileWithEncoding(file);
+      result = parseJSON(text);
+      break;
     }
     case 'docx': {
-      return parseDOCX(file);
+      result = await parseDOCX(file);
+      break;
+    }
+    case 'rtf': {
+      result = await parseRTF(file);
+      break;
     }
     case 'txt':
     case 'song':
     case 'chord':
     case 'lyrics': {
-      const text = await file.text();
-      return parseTXT(text, file.name);
+      const text = await readFileWithEncoding(file);
+      result = parseTXT(text, file.name);
+      break;
     }
     default:
-      throw new Error(`Unsupported file format: .${ext}. Supported: .csv, .json, .docx, .txt, .song, .chord, .lyrics`);
+      throw new Error(`Unsupported file format: .${ext}. Supported: .csv, .json, .docx, .rtf, .txt, .song, .chord, .lyrics`);
   }
+
+  // Normalize all line endings to \n in every song result
+  for (const song of result) {
+    song.lyrics = normalizeLineEndings(song.lyrics);
+  }
+  return result;
 }

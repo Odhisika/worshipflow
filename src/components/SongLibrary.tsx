@@ -214,7 +214,7 @@ const SongLibrary: React.FC = () => {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,.json,.docx,.txt,.song,.chord,.lyrics"
+              accept=".csv,.json,.docx,.rtf,.txt,.song,.chord,.lyrics"
               multiple
               onChange={handleFileUpload}
               style={{ display: "none" }}

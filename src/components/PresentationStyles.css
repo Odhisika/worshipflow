@@ -95,7 +95,7 @@
 .style-cinematic .output-content {
   font-size: clamp(1.8rem, 3.2vw, 5rem);
   line-height: 2;
-  font-family: 'Georgia', serif;
+  font-family: 'Georgia', 'Times New Roman', 'Segoe UI', Tahoma, Geneva, serif;
   font-style: italic;
   letter-spacing: 1px;
 }

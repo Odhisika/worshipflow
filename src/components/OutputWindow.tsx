@@ -225,7 +225,13 @@ const OutputWindow: React.FC = () => {
     };
   };
 
-  const fontStyle = { '--presentation-font': settings.selectedFont } as React.CSSProperties;
+  const fontStyle = {
+    '--presentation-font': settings.selectedFont,
+    '--presentation-font-scale': settings.fontSize,
+    '--presentation-text-align': settings.textAlign,
+    ...(settings.fontBold ? { '--presentation-font-weight': 'bold' as const } : {}),
+    ...(settings.fontItalic ? { '--presentation-font-style': 'italic' as const } : {}),
+  } as React.CSSProperties;
 
   if (isBlank) {
     return <div className="output-window blank" style={fontStyle}><CloseButton /><div className="drag-handle" data-tauri-drag-region /></div>;

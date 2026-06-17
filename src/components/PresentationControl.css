@@ -476,15 +476,17 @@
 }
 
 .monitor-slide-content {
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--presentation-font-scale, 1));
   line-height: 1.5;
   white-space: pre-line;
-  font-weight: 500;
-  font-family: var(--presentation-font, 'Inter', system-ui, -apple-system, sans-serif);
+  font-weight: var(--presentation-font-weight, 500);
+  font-style: var(--presentation-font-style, normal);
+  font-family: var(--presentation-font, 'Inter'), 'Segoe UI', Tahoma, Geneva, sans-serif;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  text-align: var(--presentation-text-align, center);
 }
 
 .blank-cover,
@@ -810,7 +812,7 @@
   font-size: 0.85rem;
   line-height: 1.7;
   color: #cbd5e1;
-  white-space: pre-wrap;
+  white-space: pre-line;
   flex: 1;
   overflow-y: auto;
   padding-right: 0.5rem;
@@ -877,6 +879,18 @@
   font-size: 0.72rem;
   color: var(--text-secondary, #94a3b8);
   line-height: 1.4;
+}
+
+.preview-action-btn.btn-fav-active {
+  border-color: #f59e0b;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.preview-action-btn.btn-fav-active:hover {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border-color: #f59e0b;
 }
 
 .bible-shortcut-hint kbd {
@@ -1080,6 +1094,146 @@
   color: var(--text-secondary, #94a3b8);
   margin: 0;
   line-height: 1.4;
+}
+
+/* ── Font Size & Alignment Controls ── */
+
+.font-controls-row {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color, #2e2f38);
+  background: #1c1d22;
+  flex-shrink: 0;
+}
+
+.font-size-control,
+.text-align-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.font-size-control label,
+.text-align-control label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.font-size-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.font-size-slider {
+  width: 140px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #3b3d47;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.font-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-blue, #3b82f6);
+  border: 2px solid #fff;
+  cursor: pointer;
+}
+
+.font-size-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  min-width: 3em;
+  text-align: right;
+}
+
+.text-align-buttons {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.align-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2b33;
+  border: 1px solid var(--border-color, #2e2f38);
+  border-radius: 4px;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.align-btn:hover {
+  background: #353740;
+  color: #f1f5f9;
+}
+
+.align-btn.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: var(--accent-blue, #3b82f6);
+  color: var(--accent-blue, #3b82f6);
+}
+
+/* ── Bold / Italic Style Buttons ── */
+
+.font-style-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.font-style-control label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.font-style-buttons {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.style-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2b33;
+  border: 1px solid var(--border-color, #2e2f38);
+  border-radius: 4px;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  font-size: 16px;
+}
+
+.style-btn:hover {
+  background: #353740;
+  color: #f1f5f9;
+}
+
+.style-btn.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: var(--accent-blue, #3b82f6);
+  color: var(--accent-blue, #3b82f6);
 }
 
 .fonts-list {
