@@ -217,20 +217,6 @@ pub async fn reorder_presentation_slides(
 // Open the presentation output window on the best available monitor
 #[tauri::command]
 pub async fn open_presentation_window(app: tauri::AppHandle) -> Result<(), String> {
-    // If window already exists, ensure it's visible and push current state so it re-syncs
-    if let Some(win) = app.get_webview_window("output") {
-        win.show().map_err(|e| e.to_string())?;
-        win.set_focus().map_err(|e| e.to_string())?;
-        win.set_fullscreen(true).map_err(|e| e.to_string())?;
-        // Push current state directly to the output window so it doesn't rely on a stale loadState
-        let info = {
-            let presentation = PRESENTATION.lock().unwrap();
-            generate_presentation_info(&presentation)
-        };
-        app.emit("slide-changed", &info).ok();
-        return Ok(());
-    }
-
     let main_win = app.get_webview_window("main").ok_or("Main window not found")?;
     let monitors = main_win.available_monitors().map_err(|e| e.to_string())?;
     let primary = main_win.primary_monitor().map_err(|e| e.to_string())?;
@@ -260,17 +246,31 @@ pub async fn open_presentation_window(app: tauri::AppHandle) -> Result<(), Strin
         (0.0, 0.0, 1920.0, 1080.0)
     };
 
+    // If window already exists, reposition on the correct monitor
+    if let Some(win) = app.get_webview_window("output") {
+        win.set_fullscreen(false).map_err(|e| e.to_string())?;
+        win.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: x as i32, y: y as i32 })).ok();
+        win.set_size(tauri::Size::Physical(tauri::PhysicalSize { width: w as u32, height: h as u32 })).ok();
+        win.show().map_err(|e| e.to_string())?;
+        win.set_focus().map_err(|e| e.to_string())?;
+        // Push current state directly to the output window so it doesn't rely on a stale loadState
+        let info = {
+            let presentation = PRESENTATION.lock().unwrap();
+            generate_presentation_info(&presentation)
+        };
+        app.emit("slide-changed", &info).ok();
+        return Ok(());
+    }
+
     let win = tauri::WebviewWindowBuilder::new(&app, "output", tauri::WebviewUrl::App("output.html".into()))
         .title("Presentation Output")
         .decorations(false)
-        .skip_taskbar(true)
         .position(x, y)
         .inner_size(w, h)
+        .min_inner_size(400.0, 300.0)
         .build()
         .map_err(|e| e.to_string())?;
 
-    // Always go fullscreen so it covers the entire monitor
-    win.set_fullscreen(true).map_err(|e| e.to_string())?;
     win.show().map_err(|e| e.to_string())?;
     Ok(())
 }

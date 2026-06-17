@@ -10,8 +10,16 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .search-input {
-  width: 100%;
+  flex: 1;
+  min-width: 200px;
   max-width: 600px;
   padding: 0.7rem 1rem;
   background-color: var(--bg-secondary);
@@ -25,6 +33,52 @@
 .search-input:focus {
   outline: none;
   border-color: var(--accent-blue);
+}
+
+.collection-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.collection-select {
+  padding: 0.5rem 0.75rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  min-width: 180px;
+  cursor: pointer;
+}
+
+.collection-select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.btn-icon {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-icon:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.btn-icon-danger:hover {
+  color: #ef4444;
+  border-color: #ef4444;
 }
 
 .song-grid {
@@ -96,6 +150,11 @@
   gap: 0.25rem;
 }
 
+.tag-collection {
+  background-color: var(--accent-blue);
+  color: white;
+}
+
 .tag-remove {
   background: none;
   border: none;
@@ -134,6 +193,10 @@
   overflow-y: auto;
 }
 
+.modal-lg {
+  max-width: 550px;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -146,6 +209,9 @@
   font-size: 1.25rem;
   color: var(--text-primary);
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .close-btn {
@@ -166,6 +232,10 @@
   color: var(--text-primary);
 }
 
+.modal-body {
+  padding: 1.5rem;
+}
+
 .modal form {
   padding: 1.5rem;
 }
@@ -182,7 +252,8 @@
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-select {
   width: 100%;
   padding: 0.85rem 1rem;
   background-color: var(--bg-tertiary);
@@ -194,8 +265,14 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.form-select {
+  appearance: auto;
+  cursor: pointer;
+}
+
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-select:focus {
   outline: none;
   border-color: var(--accent-blue);
 }
@@ -256,4 +333,143 @@
 
 .btn-upload:hover {
   background: #1557b0;
+}
+
+/* Collections Manager */
+.collection-form {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.collection-form h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.collection-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.collection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.collection-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.collection-item:hover {
+  background: var(--bg-secondary);
+}
+
+.collection-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.collection-info strong {
+  font-size: 0.95rem;
+}
+
+.collection-item-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* Batch Import Modal */
+.batch-import-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  font-size: 0.95rem;
+}
+
+.batch-song-preview {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.batch-song-preview-header {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: sticky;
+  top: 0;
+}
+
+.batch-song-preview-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.85rem;
+  align-items: center;
+}
+
+.batch-song-preview-row:last-child {
+  border-bottom: none;
+}
+
+.batch-song-preview-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.batch-song-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batch-song-key {
+  font-size: 0.75rem;
+  color: var(--accent-blue);
+  text-align: center;
+}
+
+.batch-song-lyrics-preview {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

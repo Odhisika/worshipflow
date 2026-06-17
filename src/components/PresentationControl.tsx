@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { presentationApi, PresentationInfo } from '../api/presentation';
 import { timerApi } from '../api/timer';
 import { songApi, Song, Slide, serviceApi, Service, activityApi, Activity } from '../api';
 import { bibleApi, BibleVerse } from '../api/bible';
-import { listen } from '@tauri-apps/api/event';
+import { listen, emitTo } from '@tauri-apps/api/event';
 import { 
   MdMonitor, MdPlayArrow, MdStop, MdSkipNext, 
   MdSkipPrevious, MdVisibilityOff, MdDelete, 
@@ -40,7 +40,7 @@ const PresentationControl: React.FC = () => {
   const [presentationInfo, setPresentationInfo] = useState<PresentationInfo | null>(null);
   const [slidesList, setSlidesList] = useState<Slide[]>([]);
   const [loading, setLoading] = useState(false);
-  const [outputWindow, setOutputWindow] = useState<boolean>(false);
+
   
   // Library Explorer states
   const [activeTab, setActiveTab] = useState<'songs' | 'bible' | 'media' | 'announcements' | 'capture' | 'fonts'>('songs');
@@ -67,6 +67,7 @@ const PresentationControl: React.FC = () => {
   const bibleContextRef = useRef(bibleContext);
   const bibleVersesRef = useRef(bibleVerses);
   const isAdvancingRef = useRef(false);
+  const monitorContentRef = useRef<HTMLDivElement>(null);
   useEffect(() => { bibleContextRef.current = bibleContext; }, [bibleContext]);
   useEffect(() => { bibleVersesRef.current = bibleVerses; }, [bibleVerses]);
   
@@ -339,9 +340,7 @@ const PresentationControl: React.FC = () => {
     try {
       const info = await presentationApi.startPresentation();
       setPresentationInfo(info);
-      if (!outputWindow) {
-        await openOutputWindow();
-      }
+      await openOutputWindow();
     } catch (error) {
       console.error('Failed to start presentation:', error);
     }
@@ -409,7 +408,6 @@ const PresentationControl: React.FC = () => {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('open_presentation_window');
-      setOutputWindow(true);
     } catch (error) {
       console.error('[Presentation] Failed to open output window:', error);
       alert(`Could not open output window: ${error}`);
@@ -455,8 +453,8 @@ const PresentationControl: React.FC = () => {
           const info = await presentationApi.loadSong(matchedSong.id);
           setPresentationInfo(info);
         } else {
-          // Custom activity - present notes as text
-          const info = await presentationApi.addTextSlide(activity.name, activity.notes || 'Activity Time');
+          // Custom activity - present name with optional notes
+          const info = await presentationApi.addTextSlide(activity.name, activity.notes || '');
           setPresentationInfo(info);
         }
       }
@@ -555,7 +553,7 @@ const PresentationControl: React.FC = () => {
       const paths = await mediaApi.openMediaFileDialog(type);
       if (paths && paths.length > 0) {
         const newFiles = paths.map(p => ({
-          name: p.split('/').pop() || type,
+          name: p.split(/[/\\]/).pop() || type,
           path: p,
           isVideo: type === 'video',
           mediaType: type,
@@ -771,6 +769,12 @@ const PresentationControl: React.FC = () => {
     setChurchSettings(updated);
   };
 
+  const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v', 'ogv', 'mpeg', 'mpg'];
+  const isVideoFile = (path: string): boolean => {
+    const ext = path.split('.').pop()?.toLowerCase();
+    return ext ? VIDEO_EXTS.includes(ext) : false;
+  };
+
   const getCssBackgroundStyle = (bg: string | null): React.CSSProperties => {
     if (!bg) return {};
     return {
@@ -780,12 +784,43 @@ const PresentationControl: React.FC = () => {
     };
   };
 
+  const bgIsVideo = currentBackground ? isVideoFile(currentBackground) : false;
+
+  const handleCloseWindow = useCallback(async () => {
+    try {
+      await presentationApi.closeWindow();
+    } catch (err) {
+      console.error('[PresentationControl] Failed to close window:', err);
+    }
+  }, []);
+
+  const handleMonitorScroll = useCallback(() => {
+    const el = monitorContentRef.current;
+    if (el) {
+      const scrollFraction = el.scrollHeight > el.clientHeight
+        ? el.scrollTop / (el.scrollHeight - el.clientHeight)
+        : 0;
+      emitTo('output', 'presentation-scroll', { scrollFraction }).catch(console.error);
+    }
+  }, []);
+
   const bgLayer = currentBackground && (
     <div className="live-bg-container">
-      <div 
-        className="live-bg-layer is-image"
-        style={getCssBackgroundStyle(currentBackground)}
-      />
+      {bgIsVideo ? (
+        <video
+          className="live-bg-video"
+          src={mediaApi.getAssetUrl(currentBackground)}
+          autoPlay
+          muted
+          loop
+          playsInline
+        />
+      ) : (
+        <div 
+          className="live-bg-layer is-image"
+          style={getCssBackgroundStyle(currentBackground)}
+        />
+      )}
       <div className="live-bg-overlay" />
     </div>
   );
@@ -1002,6 +1037,9 @@ const PresentationControl: React.FC = () => {
             <h3 className="panel-title-text">
               <MdTv className="panel-icon-live" /> Live Output Monitor
             </h3>
+            <button className="monitor-close-btn" onClick={handleCloseWindow} title="Close Projector Window">
+              ✕
+            </button>
           </div>
           <div className="live-monitor-box" style={{ '--presentation-font': churchSettings.selectedFont } as React.CSSProperties}>
             {bgLayer}
@@ -1012,9 +1050,7 @@ const PresentationControl: React.FC = () => {
                 {presentationInfo.current_slide.title && (
                   <div className="monitor-slide-title">{presentationInfo.current_slide.title}</div>
                 )}
-                <div className="monitor-slide-content">
-                  {presentationInfo.current_slide.content}
-                </div>
+                <div className="monitor-slide-content rich-text-render" ref={monitorContentRef} onScroll={handleMonitorScroll} dangerouslySetInnerHTML={{ __html: presentationInfo.current_slide.content }} />
               </div>
             ) : (
               <div className="no-live-cover">Projector Screen Idle</div>
@@ -1031,7 +1067,7 @@ const PresentationControl: React.FC = () => {
             {currentBackground && (
               <div className="detail-row">
                 <span>Background:</span>
-                <strong>{currentBackground.split('/').pop()}</strong>
+                <strong>{currentBackground.split(/[/\\]/).pop()}</strong>
               </div>
             )}
           </div>

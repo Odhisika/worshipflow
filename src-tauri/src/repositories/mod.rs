@@ -1,3 +1,4 @@
+pub mod collections;
 pub mod songs;
 pub mod services;
 pub mod attendance;
@@ -23,6 +24,7 @@ pub mod venues;
 pub mod audit;
 pub mod admin_roles;
 
+pub use collections::CollectionRepository;
 pub use songs::SongRepository;
 pub use services::ServiceRepository;
 pub use activities::ActivityRepository;

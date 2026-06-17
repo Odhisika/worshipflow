@@ -94,4 +94,8 @@ export const presentationApi = {
   // Bible Web Presentation
   presentBibleWeb: (url: string): Promise<{ url: string; title: string }> =>
     invoke('present_bible_web', { url }),
+
+  // Window management
+  closeWindow: (): Promise<void> =>
+    invoke('close_presentation_window'),
 };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { mediaApi } from '../api/media';
-import { MdPalette, MdAutoAwesome, MdImage, MdFolderOpen, MdCheckCircle, MdClose } from 'react-icons/md';
+import { MdPalette, MdAutoAwesome, MdImage, MdFolderOpen, MdCheckCircle, MdClose, MdMovie } from 'react-icons/md';
 import './BackgroundPicker.css';
 
 export interface BackgroundOption {
@@ -76,13 +76,14 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
   onApply,
   onClose,
 }) => {
-  const [activeTab, setActiveTab] = useState<'premade' | 'upload'>('premade');
+  const [activeTab, setActiveTab] = useState<'premade' | 'upload' | 'video'>('premade');
   const [selected, setSelected] = useState<string | null>(currentBackground);
   const [uploadedPath, setUploadedPath] = useState<string | null>(
     currentBackground && !currentBackground.startsWith('builtin:')
       ? currentBackground
       : null
   );
+  const [uploadedVideoPath, setUploadedVideoPath] = useState<string | null>(null);
 
   const handleBrowse = async () => {
     try {
@@ -94,6 +95,19 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
       }
     } catch (err) {
       console.error('Failed to open file dialog:', err);
+    }
+  };
+
+  const handleBrowseVideo = async () => {
+    try {
+      const paths = await mediaApi.openMediaFileDialog('video');
+      if (paths && paths.length > 0) {
+        const path = paths[0];
+        setUploadedVideoPath(path);
+        setSelected(path);
+      }
+    } catch (err) {
+      console.error('Failed to open video file dialog:', err);
     }
   };
 
@@ -132,6 +146,13 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
           >
             <MdImage size={16} /> Your Images
+          </button>
+          <button
+            className={`bg-tab ${activeTab === 'video' ? 'active' : ''}`}
+            onClick={() => setActiveTab('video')}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+          >
+            <MdMovie size={16} /> Your Videos
           </button>
         </div>
 
@@ -196,6 +217,44 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
                   />
                   <div className="bg-selected-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     <MdCheckCircle size={14} /> {uploadedPath.split('/').pop()}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'video' && (
+            <div>
+              <div className="bg-upload-zone" onClick={handleBrowseVideo}>
+                <div className="bg-upload-icon">
+                  <MdMovie size={48} />
+                </div>
+                <h3>Browse your videos</h3>
+                <p>MP4, WebM, MOV — plays as a looping background</p>
+                <button
+                  className="bg-upload-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  onClick={e => { e.stopPropagation(); handleBrowseVideo(); }}
+                >
+                  <MdFolderOpen size={16} /> Choose Video
+                </button>
+              </div>
+              {uploadedVideoPath && (
+                <div
+                  className={`bg-selected-image ${selected === uploadedVideoPath ? 'selected-ring' : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setSelected(uploadedVideoPath)}
+                >
+                  <video
+                    src={mediaApi.getAssetUrl(uploadedVideoPath)}
+                    muted
+                    autoPlay
+                    loop
+                    playsInline
+                    style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', display: 'block' }}
+                  />
+                  <div className="bg-selected-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <MdCheckCircle size={14} /> {uploadedVideoPath.split('/').pop()}
                   </div>
                 </div>
               )}

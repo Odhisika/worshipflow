@@ -34,6 +34,15 @@ body {
   overflow: hidden;
 }
 
+.output-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
 .output-bg-layer {
   position: absolute;
   inset: -20px; /* Slight bleed to hide blur edges */
@@ -108,8 +117,24 @@ body {
   background: transparent;
   transition: background 0.2s ease;
 }
+.drag-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 4px;
+  border-radius: 0 0 3px 3px;
+  background: rgba(255, 255, 255, 0.15);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
 .drag-handle:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+.drag-handle:hover::before {
+  opacity: 1;
 }
 .drag-handle:active {
   cursor: grabbing;
@@ -195,24 +220,9 @@ body {
   white-space: pre-line;
   max-width: 90%;
   max-height: 70vh;
-  overflow-y: auto;
+  overflow: hidden;
   font-weight: 400;
   color: #f0f4ff;
-}
-
-/* Subtle scrollbar for long content — thin so it doesn't distract on projector */
-.output-content::-webkit-scrollbar {
-  width: 6px;
-}
-.output-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-.output-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 3px;
-}
-.output-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.45);
 }
 
 /* ========================
@@ -228,6 +238,36 @@ body {
   font-size: clamp(1.8rem, 4vw, 5.5rem);
   line-height: 1.7;
   font-weight: 500;
+}
+
+.slide-song .output-content .stanza-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.slide-song .output-content .stanza-label {
+  font-size: 0.6em;
+  font-weight: 700;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 0.25em;
+  opacity: 0.85;
+}
+
+.slide-song .output-content .stanza-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.slide-song .output-content .stanza-body .verse-line,
+.slide-song .output-content .verse-line {
+  display: block;
+  text-align: center;
+  padding: 0.05em 0;
 }
 
 .slide-bible .output-title {
@@ -585,4 +625,39 @@ body {
 
 .output-content.rich-text-render u {
   text-decoration: underline;
+}
+
+/* ========================
+   CLOSE BUTTON
+   ======================== */
+
+.output-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.output-window:hover .output-close-btn {
+  opacity: 1;
+}
+
+.output-close-btn:hover {
+  background: rgba(239, 68, 68, 0.7);
+  color: white;
 }

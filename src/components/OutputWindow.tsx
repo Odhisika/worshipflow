@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import { presentationApi, PresentationInfo } from '../api/presentation';
 import { timerApi, TimerInfo } from '../api/timer';
 import { Slide } from '../api';
@@ -8,6 +9,12 @@ import { churchSettingsApi, ChurchSettings } from '../api/churchSettings';
 import './OutputWindow.css';
 import './BackgroundPicker.css';
 import './PresentationStyles.css';
+
+const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v', 'ogv', 'mpeg', 'mpg'];
+const isVideoFile = (path: string): boolean => {
+  const ext = path.split('.').pop()?.toLowerCase();
+  return ext ? VIDEO_EXTS.includes(ext) : false;
+};
 
 const OutputWindow: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
@@ -22,6 +29,7 @@ const OutputWindow: React.FC = () => {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Load logo whenever the path changes
   useEffect(() => {
@@ -127,6 +135,15 @@ const OutputWindow: React.FC = () => {
       });
       unlisteners.push(unSettings);
 
+      const unScroll = await listen('presentation-scroll', (event: any) => {
+        const { scrollFraction } = event.payload;
+        if (contentRef.current) {
+          const el = contentRef.current;
+          el.scrollTop = scrollFraction * (el.scrollHeight - el.clientHeight);
+        }
+      });
+      unlisteners.push(unScroll);
+
       await syncState();
     };
 
@@ -141,6 +158,27 @@ const OutputWindow: React.FC = () => {
       unlisteners.forEach(fn => fn());
     };
   }, [syncState]);
+
+  // Reset scroll position when a genuinely new slide is shown
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [currentSlide?.id]);
+
+  const handleClose = useCallback(async () => {
+    try {
+      await invoke('close_presentation_window');
+    } catch (err) {
+      console.error('[OutputWindow] Failed to close window:', err);
+    }
+  }, []);
+
+  const CloseButton = () => (
+    <button className="output-close-btn" onClick={handleClose} title="Close Output Window">
+      ✕
+    </button>
+  );
 
   const TimerBar = () => {
     if (!timerInfo?.current_timer) return null;
@@ -190,12 +228,13 @@ const OutputWindow: React.FC = () => {
   const fontStyle = { '--presentation-font': settings.selectedFont } as React.CSSProperties;
 
   if (isBlank) {
-    return <div className="output-window blank" style={fontStyle}><div className="drag-handle" data-tauri-drag-region /></div>;
+    return <div className="output-window blank" style={fontStyle}><CloseButton /><div className="drag-handle" data-tauri-drag-region /></div>;
   }
 
   if (!isLive || !currentSlide) {
     return (
       <div className="output-window" style={fontStyle}>
+        <CloseButton />
         <div className="drag-handle" data-tauri-drag-region />
         <div className="waiting-message">
           {logoUrl ? (
@@ -211,16 +250,26 @@ const OutputWindow: React.FC = () => {
     );
   }
 
-  const isImageBg = currentSlide.background_path && !currentSlide.background_path.startsWith('builtin:');
-  const builtinClass = getBuiltinBgClass(currentSlide.background_path);
-  const bgStyle = getBgStyle(currentSlide.background_path);
+  const bgPath = currentSlide.background_path;
+  const isBgVideo = bgPath ? isVideoFile(bgPath) : false;
 
-  const bgLayer = currentSlide.background_path && (
+  const bgLayer = bgPath && (
     <div className="output-bg-container">
-      <div
-        className={`output-bg-layer ${builtinClass} ${isImageBg ? 'is-image' : ''}`}
-        style={bgStyle}
-      />
+      {isBgVideo ? (
+        <video
+          className="output-bg-video"
+          src={mediaApi.getAssetUrl(bgPath)}
+          autoPlay
+          muted
+          loop
+          playsInline
+        />
+      ) : (
+        <div
+          className={`output-bg-layer ${getBuiltinBgClass(bgPath)} ${!bgPath.startsWith('builtin:') ? 'is-image' : ''}`}
+          style={getBgStyle(bgPath)}
+        />
+      )}
       <div className="output-bg-overlay" />
     </div>
   );
@@ -229,6 +278,7 @@ const OutputWindow: React.FC = () => {
   if (currentSlide.slide_type === 'timer') {
     return (
       <div className={`output-window timer-mode ${isOverrun ? 'overrun' : ''}`} style={fontStyle}>
+        <CloseButton />
         <div className="drag-handle" data-tauri-drag-region />
         {bgLayer}
         {logoUrl && (
@@ -252,6 +302,7 @@ const OutputWindow: React.FC = () => {
   if (currentSlide.slide_type === 'image' && currentSlide.media_path) {
     return (
       <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
+        <CloseButton />
         <div className="drag-handle" data-tauri-drag-region />
         {logoUrl && (
           <div className="church-watermark">
@@ -265,9 +316,6 @@ const OutputWindow: React.FC = () => {
             alt={currentSlide.title || 'Image'}
             className="media-slide-image"
           />
-          {currentSlide.title && (
-            <div className="media-slide-caption">{currentSlide.title}</div>
-          )}
         </div>
         {settings.tickerEnabled && settings.tickerText && (
           <div className="news-ticker">
@@ -286,6 +334,7 @@ const OutputWindow: React.FC = () => {
   if (currentSlide.slide_type === 'video' && currentSlide.media_path) {
     return (
       <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
+        <CloseButton />
         <div className="drag-handle" data-tauri-drag-region />
         <div className="media-slide-display video-slide-display">
           <video
@@ -326,6 +375,7 @@ const OutputWindow: React.FC = () => {
   if (currentSlide.slide_type === 'audio' && currentSlide.media_path) {
     return (
       <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
+        <CloseButton />
         <div className="drag-handle" data-tauri-drag-region />
         {bgLayer}
         {logoUrl && (
@@ -367,6 +417,7 @@ const OutputWindow: React.FC = () => {
   if (currentSlide.slide_type === 'capture' && currentSlide.media_path) {
     return (
       <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
+        <CloseButton />
         <div className="drag-handle" data-tauri-drag-region />
         <div className="media-slide-display capture-slide-display">
           <img
@@ -393,6 +444,7 @@ const OutputWindow: React.FC = () => {
   if (currentSlide.slide_type === 'capture' && !currentSlide.media_path && currentSlide.content.startsWith('http')) {
     return (
       <div className="output-window web-bible-display" style={fontStyle}>
+        <CloseButton />
         <div className="drag-handle" data-tauri-drag-region />
         <iframe
           src={currentSlide.content}
@@ -408,6 +460,7 @@ const OutputWindow: React.FC = () => {
   // Default: text-based slides (text, song, bible, announcement)
   return (
     <div className={`output-window style-${settings.presentationStyle}`} style={fontStyle}>
+      <CloseButton />
       <div className="drag-handle" data-tauri-drag-region />
       {bgLayer}
 
@@ -423,7 +476,7 @@ const OutputWindow: React.FC = () => {
           {currentSlide.title && (
             <div className="output-title">{currentSlide.title}</div>
           )}
-          <div className="output-content rich-text-render" dangerouslySetInnerHTML={{ __html: currentSlide.content }} />
+          <div className="output-content rich-text-render" ref={contentRef} dangerouslySetInnerHTML={{ __html: currentSlide.content }} />
         </div>
       </div>
 

@@ -85,6 +85,17 @@ fn seed_default_groups(conn: &Connection) -> Result<()> {
 }
 
 fn create_tables(conn: &Connection) -> Result<()> {
+    // Collections table (hymnal groupings)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS collections (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
     // Songs table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS songs (
@@ -97,11 +108,48 @@ fn create_tables(conn: &Connection) -> Result<()> {
             chords TEXT,
             show_chords INTEGER DEFAULT 0,
             arrangement TEXT,
+            collection_id TEXT,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE SET NULL
         )",
         [],
     )?;
+
+    // Migration: add collection_id to existing songs table if missing
+    {
+        let check = "SELECT COUNT(*) FROM pragma_table_info('songs') WHERE name='collection_id'";
+        let count: i32 = conn.query_row(check, [], |row| row.get(0)).unwrap_or(0);
+        if count == 0 {
+            conn.execute("ALTER TABLE songs ADD COLUMN collection_id TEXT REFERENCES collections(id) ON DELETE SET NULL", [])?;
+            log::info!("Added collection_id column to songs table");
+        }
+    }
+
+    // FTS5 full-text search index for songs
+    conn.execute_batch(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS song_fts USING fts5(
+            title, lyrics, song_id UNINDEXED
+        );
+
+        CREATE TRIGGER IF NOT EXISTS song_fts_ai AFTER INSERT ON songs BEGIN
+            INSERT INTO song_fts(song_id, title, lyrics) VALUES (new.id, new.title, new.lyrics);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS song_fts_ad AFTER DELETE ON songs BEGIN
+            DELETE FROM song_fts WHERE song_id = old.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS song_fts_au AFTER UPDATE ON songs BEGIN
+            DELETE FROM song_fts WHERE song_id = old.id;
+            INSERT INTO song_fts(song_id, title, lyrics) VALUES (new.id, new.title, new.lyrics);
+        END;"
+    )?;
+
+    // Populate FTS5 index with existing songs (idempotent)
+    conn.execute("DELETE FROM song_fts", [])?;
+    conn.execute("INSERT INTO song_fts(song_id, title, lyrics) SELECT id, title, lyrics FROM songs", [])?;
+    log::info!("Populated FTS5 song search index");
 
     // Services table
     conn.execute(

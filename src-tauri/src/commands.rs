@@ -2,7 +2,20 @@ use crate::error::AppResult;
 use crate::models::{Song, CreateSongRequest, Service, CreateServiceRequest, Activity, CreateActivityRequest};
 use crate::repositories::{SongRepository, ServiceRepository, ActivityRepository};
 use crate::AppState;
+use serde::Serialize;
 use tauri::State;
+
+#[derive(Serialize)]
+pub struct SongExportData {
+    pub title: String,
+    pub lyrics: String,
+    pub key: Option<String>,
+    pub tags: Vec<String>,
+    pub chords: Option<String>,
+    pub show_chords: bool,
+    pub arrangement: Option<String>,
+    pub collection_id: Option<String>,
+}
 
 // Song commands
 #[tauri::command]
@@ -169,6 +182,7 @@ pub async fn import_song_from_content(
     title: String,
     content: String,
     tags: Option<Vec<String>>,
+    collection_id: Option<String>,
 ) -> AppResult<Song> {
     let request = CreateSongRequest {
         title,
@@ -179,10 +193,38 @@ pub async fn import_song_from_content(
         chords: None,
         show_chords: Some(false),
         arrangement: None,
+        collection_id,
     };
     
     let conn = state.db.lock().unwrap();
     SongRepository::create(&conn, request)
+}
+
+#[tauri::command]
+pub async fn search_songs_fts(
+    state: State<'_, AppState>,
+    query: String,
+) -> AppResult<Vec<Song>> {
+    let conn = state.db.lock().unwrap();
+    SongRepository::search_fts5(&conn, &query)
+}
+
+#[tauri::command]
+pub async fn export_songs_library(
+    state: State<'_, AppState>,
+) -> AppResult<Vec<SongExportData>> {
+    let conn = state.db.lock().unwrap();
+    let songs = SongRepository::get_all(&conn)?;
+    Ok(songs.into_iter().map(|s| SongExportData {
+        title: s.title,
+        lyrics: s.lyrics,
+        key: s.key,
+        tags: s.tags,
+        chords: s.chords,
+        show_chords: s.show_chords,
+        arrangement: s.arrangement,
+        collection_id: s.collection_id,
+    }).collect())
 }
 
 // ── Logging helper ──────────────────────────────────────────────────────

@@ -1,6 +1,21 @@
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
+// Collection model (hymnal groupings)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Collection {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateCollectionRequest {
+    pub name: String,
+    pub description: Option<String>,
+}
+
 // Song model
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Song {
@@ -13,6 +28,7 @@ pub struct Song {
     pub chords: Option<String>,
     pub show_chords: bool,
     pub arrangement: Option<String>,
+    pub collection_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -27,6 +43,20 @@ pub struct CreateSongRequest {
     pub chords: Option<String>,
     pub show_chords: Option<bool>,
     pub arrangement: Option<String>,
+    pub collection_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSongRequest {
+    pub title: Option<String>,
+    pub lyrics: Option<String>,
+    pub key: Option<String>,
+    pub tempo: Option<i32>,
+    pub tags: Option<Vec<String>>,
+    pub chords: Option<String>,
+    pub show_chords: Option<bool>,
+    pub arrangement: Option<String>,
+    pub collection_id: Option<String>,
 }
 
 // Service model

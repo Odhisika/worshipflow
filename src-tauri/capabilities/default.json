@@ -4,17 +4,7 @@
   "windows": ["*"],
   "permissions": [
     "core:default",
-    {
-      "identifier": "core:asset:default",
-      "allow": [
-        { "path": "**" },
-        { "path": "$CACHE/**" },
-        { "path": "$APPDATA/**" },
-        { "path": "$HOME/**" },
-        { "path": "/**" }
-      ]
-    },
-    "event:default",
+    "core:event:default",
     "dialog:default",
     "dialog:allow-open"
   ]

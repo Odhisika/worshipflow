@@ -37,6 +37,7 @@ mod commands_venues;
 mod commands_audit;
 mod commands_admin_roles;
 mod commands_backup;
+mod commands_collections;
 
 use rusqlite::Connection;
 use std::sync::Mutex;
@@ -148,6 +149,16 @@ fn main() {
             commands::update_song,
             commands::delete_song,
             commands::import_song_from_content,
+            commands::search_songs_fts,
+            commands::export_songs_library,
+            // Collection commands
+            commands_collections::create_collection,
+            commands_collections::get_collection,
+            commands_collections::get_all_collections,
+            commands_collections::update_collection,
+            commands_collections::delete_collection,
+            commands_collections::get_songs_by_collection,
+            commands_collections::get_uncategorized_songs,
             // Service commands
             commands::create_service,
             commands::get_service,

@@ -436,6 +436,16 @@
   transform: scale(1.01);
 }
 
+.live-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .live-bg-overlay {
   position: absolute;
   inset: 0;
@@ -444,11 +454,15 @@
 }
 
 .monitor-slide-preview {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 10;
   color: #fff;
   text-align: center;
   padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .monitor-slide-title {
@@ -458,6 +472,7 @@
   margin-bottom: 0.4rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  flex-shrink: 0;
 }
 
 .monitor-slide-content {
@@ -467,6 +482,9 @@
   font-weight: 500;
   font-family: var(--presentation-font, 'Inter', system-ui, -apple-system, sans-serif);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .blank-cover,
@@ -482,6 +500,27 @@
 
 .blank-cover {
   color: var(--danger, #ef4444);
+}
+
+.monitor-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.monitor-close-btn:hover {
+  background: rgba(239, 68, 68, 0.7);
+  color: #fff;
+  border-color: transparent;
 }
 
 .monitor-details {
@@ -1441,6 +1480,36 @@
 
 .rich-text-render u {
   text-decoration: underline;
+}
+
+.rich-text-render .stanza-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25em;
+}
+
+.rich-text-render .stanza-label {
+  font-weight: 700;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.8em;
+  margin-bottom: 0.25em;
+  opacity: 0.85;
+}
+
+.rich-text-render .stanza-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rich-text-render .stanza-body .verse-line,
+.rich-text-render .verse-line {
+  display: block;
+  text-align: center;
+  padding: 0.05em 0;
 }
 
 /* ── Text Slide Modal ── */

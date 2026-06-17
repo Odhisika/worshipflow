@@ -255,7 +255,7 @@ const Dashboard: React.FC = () => {
             </>
           ) : (
             <>
-              <h1 className="billboard-title">Worship Flow Pro is Ready</h1>
+              <h1 className="billboard-title">Worship Flow  is Ready</h1>
               <p className="billboard-theme">Prepare your song lyrics, scriptures, and media slides for projection</p>
               <div className="billboard-actions">
                 <button className="billboard-btn billboard-btn-primary" onClick={() => handleQuickAction('new-service')}>

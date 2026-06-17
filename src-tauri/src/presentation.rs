@@ -169,7 +169,7 @@ pub fn generate_song_slides(lyrics: &str, title: &str) -> Vec<Slide> {
     let mut slides = Vec::new();
     let mut slide_count = 0;
 
-    // Split lyrics by double line breaks (verses)
+    // Split lyrics by double line breaks (stanzas)
     let sections: Vec<&str> = lyrics.split("\n\n").collect();
 
     for section in sections {
@@ -179,11 +179,42 @@ pub fn generate_song_slides(lyrics: &str, title: &str) -> Vec<Slide> {
         }
 
         slide_count += 1;
+
+        // Check if the first line is a stanza label
+        let (label_display, body_lines): (Option<String>, Vec<&str>) =
+            if let Some((_, display)) = detect_stanza_label(&section) {
+                // Strip the actual first line (the label) from the body
+                let rest: Vec<&str> = section
+                    .lines()
+                    .skip(1)
+                    .map(|l| l.trim())
+                    .filter(|l| !l.is_empty())
+                    .collect();
+                (Some(display), rest)
+            } else {
+                (None, section.lines().map(|l| l.trim()).collect())
+            };
+
+        let content = if let Some(label) = &label_display {
+            let body_html = body_lines
+                .iter()
+                .map(|l| format!("<div class=\"verse-line\">{}</div>", l))
+                .collect::<Vec<_>>()
+                .join("");
+            format!("<div class=\"stanza-wrap\"><div class=\"stanza-label\">{}</div><div class=\"stanza-body\">{}</div></div>", label, body_html)
+        } else {
+            body_lines
+                .iter()
+                .map(|l| format!("<div class=\"verse-line\">{}</div>", l))
+                .collect::<Vec<_>>()
+                .join("")
+        };
+
         slides.push(Slide {
             id: format!("{}-slide-{}", title, slide_count),
             slide_type: SlideType::Song,
             title: Some(title.to_string()),
-            content: section.to_string(),
+            content,
             media_path: None,
             background_path: None,
             order_index: slide_count - 1,
@@ -192,6 +223,48 @@ pub fn generate_song_slides(lyrics: &str, title: &str) -> Vec<Slide> {
     }
 
     slides
+}
+
+/// Detects a stanza label at the beginning of a section.
+/// Returns (actual_first_line_text, display_label) if found, or None.
+/// The first element is the raw first line to strip from content;
+/// the second is what to show in the label UI.
+fn detect_stanza_label(section: &str) -> Option<(&str, String)> {
+    let first_line = section.lines().next()?.trim();
+
+    // Match: "Stanza N", "Stanza N."
+    if first_line.starts_with("Stanza ") {
+        return Some((first_line, first_line.to_string()));
+    }
+
+    // Match: "Verse N", "Verse N."
+    if first_line.starts_with("Verse ") {
+        return Some((first_line, first_line.to_string()));
+    }
+
+    // Match: "[Chorus]", "[Bridge]", "[Intro]", etc.
+    if first_line.starts_with('[') && first_line.ends_with(']') {
+        return Some((first_line, first_line.to_string()));
+    }
+
+    // Match: "N." or "N)" (stanza number with trailing dot/paren)
+    if let Some(rest) = first_line.strip_suffix('.') {
+        if rest.parse::<i32>().is_ok() {
+            return Some((first_line, format!("Stanza {}", rest)));
+        }
+    }
+    if let Some(rest) = first_line.strip_suffix(')') {
+        if rest.parse::<i32>().is_ok() {
+            return Some((first_line, format!("Stanza {}", rest)));
+        }
+    }
+
+    // Match: plain "N" (number alone, no dot or paren)
+    if let Ok(n) = first_line.parse::<i32>() {
+        return Some((first_line, format!("Stanza {}", n)));
+    }
+
+    None
 }
 
 pub fn generate_bible_slide(book: &str, chapter: i32, verses: &str, text: &str) -> Slide {
