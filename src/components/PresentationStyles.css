@@ -62,13 +62,13 @@
   backdrop-filter: blur(8px);
 }
 .style-lower-third .output-title {
-  font-size: clamp(1.2rem, 2.2vw, 3rem);
+  font-size: calc(clamp(1.2rem, 2.2vw, 3rem) * var(--presentation-font-scale, 1));
   margin-bottom: 0.5vh;
   text-transform: uppercase;
   letter-spacing: 2px;
 }
 .style-lower-third .output-content {
-  font-size: clamp(1.5rem, 3vw, 4.5rem);
+  font-size: calc(clamp(1.5rem, 3vw, 4.5rem) * var(--presentation-font-scale, 1));
   max-height: 40vh;
   text-align: left;
 }
@@ -85,7 +85,7 @@
   text-align: center;
 }
 .style-cinematic .output-title {
-  font-size: clamp(1rem, 1.8vw, 2.8rem);
+  font-size: calc(clamp(1rem, 1.8vw, 2.8rem) * var(--presentation-font-scale, 1));
   letter-spacing: 6px;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.6);
@@ -93,7 +93,7 @@
   font-weight: 300;
 }
 .style-cinematic .output-content {
-  font-size: clamp(1.8rem, 3.2vw, 5rem);
+  font-size: calc(clamp(1.8rem, 3.2vw, 5rem) * var(--presentation-font-scale, 1));
   line-height: 2;
   font-family: 'Georgia', 'Times New Roman', 'Segoe UI', Tahoma, Geneva, serif;
   font-style: italic;

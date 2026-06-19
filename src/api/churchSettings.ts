@@ -8,11 +8,15 @@ export interface ChurchSettings {
   presentationStyle: PresentationStyle;
   tickerEnabled: boolean;
   tickerText: string;  // custom text shown in the news ticker crawl
+  tickerLabel: string;  // label displayed before the ticker text (e.g. "Alert!")
   selectedFont: string;  // CSS font-family value for the presentation output
   fontSize: number;  // font-size multiplier 0.5–2.0, default 1.0
   textAlign: 'left' | 'center' | 'right';  // text alignment on output screen
   fontBold: boolean;  // bold toggle for presentation text
   fontItalic: boolean;  // italic toggle for presentation text
+  textColor: string;  // text color hex for output screen
+  textGradient: string | null;  // CSS gradient for output text (overrides textColor)
+  favoriteColors: string[];  // user's saved favorite colors
 }
 
 const KEY = 'worshipflow_church_settings';
@@ -23,11 +27,15 @@ const defaults: ChurchSettings = {
   presentationStyle: 'classic',
   tickerEnabled: false,
   tickerText: '',
+  tickerLabel: 'Alert!',
   selectedFont: "'Inter', 'Segoe UI', Tahoma, Geneva, sans-serif",
   fontSize: 1.0,
   textAlign: 'center',
   fontBold: false,
   fontItalic: false,
+  textColor: '#f0f4ff',
+  textGradient: null,
+  favoriteColors: ['#f0f4ff', '#60a5fa', '#a78bfa', '#34d399', '#fbbf24', '#f87171'],
 };
 
 export const churchSettingsApi = {

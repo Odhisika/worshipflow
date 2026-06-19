@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { songApi, collectionApi, Song, CreateSongRequest, Collection } from '../api';
 import { presentationApi } from '../api/presentation';
 import { parseSongFile, ParsedSong } from '../utils/songImport';
-import { MdLibraryMusic, MdAdd, MdDownload, MdClose, MdPlayArrow, MdFolder, MdEdit, MdDelete, MdSettings, MdCheck } from 'react-icons/md';
+import { MdLibraryMusic, MdAdd, MdDownload, MdClose, MdPlayArrow, MdFolder, MdEdit, MdDelete, MdSettings, MdCheck, MdViewModule, MdViewList } from 'react-icons/md';
 import './SongLibrary.css';
 
 const SongLibrary: React.FC = () => {
@@ -17,6 +17,7 @@ const SongLibrary: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showCollectionManager, setShowCollectionManager] = useState(false);
   const [batchImport, setBatchImport] = useState<{
     songs: ParsedSong[];
@@ -263,6 +264,22 @@ const SongLibrary: React.FC = () => {
               <MdSettings size={16} />
             </button>
           </div>
+          <div className="view-toggle-group">
+            <button
+              className={`btn-icon ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+              title="Grid view"
+            >
+              <MdViewModule size={18} />
+            </button>
+            <button
+              className={`btn-icon ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              <MdViewList size={18} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -272,7 +289,7 @@ const SongLibrary: React.FC = () => {
         <div className="empty-state">
           <p>No songs found. Add your first song to get started!</p>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="song-grid">
           {songs.map((song) => {
             const coll = collections.find(c => c.id === song.collection_id);
@@ -292,6 +309,49 @@ const SongLibrary: React.FC = () => {
                   ))}
                 </div>
                 <div className="song-actions">
+                  <button
+                    className="btn-primary btn-sm"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                    onClick={() => handleLoadToPresentation(song)}
+                    title="Load to Presentation"
+                  >
+                    <MdPlayArrow size={14} /> Present
+                  </button>
+                  <button
+                    className="btn-secondary btn-sm"
+                    onClick={() => {
+                      setEditingSong(song);
+                      setShowAddModal(true);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="btn-danger btn-sm"
+                    onClick={() => handleDelete(song.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="song-list">
+          {songs.map((song) => {
+            const coll = collections.find(c => c.id === song.collection_id);
+            return (
+              <div key={song.id} className="song-list-item">
+                <div className="song-list-info">
+                  <strong>{song.title}</strong>
+                  {song.key && <span className="song-key">Key: {song.key}</span>}
+                  {coll && <span className="tag tag-collection">{coll.name}</span>}
+                </div>
+                <div className="song-list-preview">
+                  {song.lyrics.split('\n').slice(0, 2).join('\n')}
+                </div>
+                <div className="song-list-actions">
                   <button
                     className="btn-primary btn-sm"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}

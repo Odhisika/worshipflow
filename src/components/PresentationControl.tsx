@@ -13,7 +13,8 @@ import {
   MdEvent, MdSlideshow, MdTv,
   MdMovie, MdMusicNote, MdPublic, MdWallpaper, MdCreate, MdLandscape,
   MdCheckCircle, MdTextFields, MdFormatAlignLeft, MdFormatAlignCenter, MdFormatAlignRight,
-  MdFormatBold, MdFormatItalic
+  MdFormatBold, MdFormatItalic, MdViewModule, MdViewList, MdSettings,
+  MdColorLens, MdFavorite, MdFavoriteBorder, MdRestore
 } from 'react-icons/md';
 import { FiRefreshCw, FiHeart } from 'react-icons/fi';
 import ChurchBrandingModal from './ChurchBrandingModal';
@@ -73,6 +74,58 @@ const PresentationControl: React.FC = () => {
   const monitorContentRef = useRef<HTMLDivElement>(null);
   useEffect(() => { bibleContextRef.current = bibleContext; }, [bibleContext]);
   useEffect(() => { bibleVersesRef.current = bibleVerses; }, [bibleVerses]);
+  
+  // ── Resizable Panels State ──────────────────────────────────────────────────
+  const [leftColWidth, setLeftColWidth] = useState(280);   // px
+  const [rightColWidth, setRightColWidth] = useState(340); // px
+  const [bottomHeight, setBottomHeight] = useState(350);   // px
+
+  // View mode toggles: grid | list
+  const [slidesViewMode, setSlidesViewMode] = useState<'grid' | 'list'>('grid');
+  const [songViewMode, setSongViewMode] = useState<'list' | 'grid'>('list');
+
+  // Drag state refs (avoid stale closures in mousemove)
+  const dragRef = useRef<{
+    type: 'left' | 'right' | 'bottom' | null;
+    startX: number;
+    startY: number;
+    startVal: number;
+  }>({ type: null, startX: 0, startY: 0, startVal: 0 });
+
+  const updateLeftWidth = useCallback((val: number) => setLeftColWidth(Math.max(160, Math.min(520, val))), []);
+  const updateRightWidth = useCallback((val: number) => setRightColWidth(Math.max(220, Math.min(560, val))), []);
+  const updateBottomHeight = useCallback((val: number) => setBottomHeight(Math.max(140, Math.min(620, val))), []);
+
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d.type) return;
+      if (d.type === 'left') {
+        updateLeftWidth(d.startVal + (e.clientX - d.startX));
+      } else if (d.type === 'right') {
+        updateRightWidth(d.startVal + (d.startX - e.clientX));
+      } else if (d.type === 'bottom') {
+        updateBottomHeight(d.startVal + (d.startY - e.clientY));
+      }
+    };
+    const onPointerUp = () => {
+      if (!dragRef.current.type) return;
+      dragRef.current.type = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => { window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('pointerup', onPointerUp); };
+  }, [updateLeftWidth, updateRightWidth, updateBottomHeight]);
+
+  const startDrag = (type: 'left' | 'right' | 'bottom', e: React.PointerEvent, startVal: number) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = { type, startX: e.clientX, startY: e.clientY, startVal };
+    document.body.style.cursor = type === 'bottom' ? 'row-resize' : 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
   
   // Library - Media states
   const [mediaFiles, setMediaFiles] = useState<Array<{ name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' }>>([]);
@@ -828,6 +881,49 @@ const PresentationControl: React.FC = () => {
     setChurchSettings(updated);
   };
 
+  const handleTextColorChange = (color: string) => {
+    const updated = churchSettingsApi.save({ textColor: color, textGradient: null });
+    setChurchSettings(updated);
+  };
+
+  const handleGradientSelect = (gradient: string) => {
+    const updated = churchSettingsApi.save({ textGradient: gradient });
+    setChurchSettings(updated);
+  };
+
+  const handleResetTextColor = () => {
+    const updated = churchSettingsApi.save({ textColor: '#f0f4ff', textGradient: null });
+    setChurchSettings(updated);
+  };
+
+  const toggleFavoriteColor = (color: string) => {
+    const favs = churchSettings.favoriteColors || [];
+    if (favs.includes(color)) {
+      churchSettingsApi.save({ favoriteColors: favs.filter(c => c !== color) });
+      setChurchSettings(prev => ({ ...prev, favoriteColors: favs.filter(c => c !== color) }));
+    } else {
+      churchSettingsApi.save({ favoriteColors: [...favs, color] });
+      setChurchSettings(prev => ({ ...prev, favoriteColors: [...favs, color] }));
+    }
+  };
+
+  const PRESET_COLORS = [
+    '#f0f4ff', '#ffffff', '#60a5fa', '#3b82f6', '#a78bfa', '#8b5cf6',
+    '#34d399', '#10b981', '#fbbf24', '#f59e0b', '#f87171', '#ef4444',
+    '#f472b6', '#ec4899', '#fb923c', '#f97316',
+  ];
+
+  const GRADIENT_PRESETS = [
+    { name: 'White to Blue', value: 'linear-gradient(135deg, #ffffff, #60a5fa)' },
+    { name: 'Gold Radiance', value: 'linear-gradient(135deg, #fbbf24, #f59e0b)' },
+    { name: 'Purple Haze', value: 'linear-gradient(135deg, #c084fc, #8b5cf6)' },
+    { name: 'Rose Gold', value: 'linear-gradient(135deg, #f472b6, #f87171)' },
+    { name: 'Teal Dream', value: 'linear-gradient(135deg, #34d399, #06b6d4)' },
+    { name: 'Fire', value: 'linear-gradient(135deg, #f97316, #ef4444)' },
+    { name: 'Ocean', value: 'linear-gradient(135deg, #3b82f6, #06b6d4)' },
+    { name: 'Lime Punch', value: 'linear-gradient(135deg, #a3e635, #10b981)' },
+  ];
+
   const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v', 'ogv', 'mpeg', 'mpg'];
   const isVideoFile = (path: string): boolean => {
     const ext = path.split('.').pop()?.toLowerCase();
@@ -959,7 +1055,7 @@ const PresentationControl: React.FC = () => {
       <div className="console-main-layout">
         
         {/* Left Column: Service Timeline */}
-        <aside className="schedule-panel glass-card">
+        <aside className="schedule-panel glass-card" style={{ width: leftColWidth, flexShrink: 0 }}>
           <div className="panel-title flex-between">
             <h3 className="panel-title-text">
               <MdEvent className="panel-icon" /> Service Schedule
@@ -1001,17 +1097,42 @@ const PresentationControl: React.FC = () => {
           </div>
         </aside>
 
+        {/* Resize handle: left ↔ center */}
+        <div
+          className="panel-resize-handle panel-resize-handle--vertical"
+          onPointerDown={(e) => startDrag('left', e, leftColWidth)}
+          title="Drag to resize Schedule panel"
+        />
+
         {/* Middle Column: Slide Grid */}
-        <main className="slide-grid-panel glass-card">
+        <main className="slide-grid-panel glass-card" style={{ flexGrow: 1 }}>
           <div className="panel-title flex-between">
             <h3 className="panel-title-text">
               <MdSlideshow className="panel-icon" /> Active Presentation Slides
             </h3>
-            {presentationInfo?.total_slides ? (
-              <span className="slide-counter-badge">
-                Slide {presentationInfo.current_index + 1} of {presentationInfo.total_slides}
-              </span>
-            ) : null}
+            <div className="panel-title-right">
+              {presentationInfo?.total_slides ? (
+                <span className="slide-counter-badge">
+                  Slide {presentationInfo.current_index + 1} of {presentationInfo.total_slides}
+                </span>
+              ) : null}
+              <div className="view-toggle-group">
+                <button
+                  className={`view-toggle-btn ${slidesViewMode === 'grid' ? 'active' : ''}`}
+                  onClick={() => setSlidesViewMode('grid')}
+                  title="Grid view"
+                >
+                  <MdViewModule size={16} />
+                </button>
+                <button
+                  className={`view-toggle-btn ${slidesViewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setSlidesViewMode('list')}
+                  title="List view"
+                >
+                  <MdViewList size={16} />
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="slide-grid-container scrollable">
@@ -1024,7 +1145,7 @@ const PresentationControl: React.FC = () => {
               <div className="empty-panel-text">
                 No active slides loaded.<br/>Select an item from the schedule or resources tab.
               </div>
-            ) : (
+            ) : slidesViewMode === 'grid' ? (
               <div className="slides-layout-grid">
                 {slidesList.map((slide, index) => {
                   const isActive = presentationInfo?.current_index === index;
@@ -1067,6 +1188,37 @@ const PresentationControl: React.FC = () => {
                   );
                 })}
               </div>
+            ) : (
+              <div className="slides-layout-list">
+                {slidesList.map((slide, index) => {
+                  const isActive = presentationInfo?.current_index === index;
+                  const isMedia = slide.slide_type === 'image' || slide.slide_type === 'video' || slide.slide_type === 'audio';
+                  return (
+                    <div 
+                      key={slide.id} 
+                      className={`slide-list-item ${isActive ? 'active' : ''} ${isMedia ? 'is-media' : ''}`}
+                      onClick={() => presentationApi.gotoSlide(index)}
+                    >
+                      <span className="slide-list-index">Slide {index + 1}</span>
+                      {slide.title && <span className="slide-list-title">{slide.title}</span>}
+                      {isMedia && (
+                        <span className={`slide-media-badge ${slide.slide_type}`}>
+                          {slide.slide_type === 'image' ? <MdImage size={14} /> : slide.slide_type === 'video' ? <MdMovie size={14} /> : <MdMusicNote size={14} />}
+                          {slide.slide_type}
+                        </span>
+                      )}
+                      <div className="slide-list-preview rich-text-render" dangerouslySetInnerHTML={{ __html: slide.content }} />
+                      <button
+                        className="slide-remove-btn"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveSlide(index); }}
+                        title="Remove slide"
+                      >
+                        <MdClose size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
@@ -1090,8 +1242,15 @@ const PresentationControl: React.FC = () => {
           </div>
         </main>
 
+        {/* Resize handle: center ↔ right */}
+        <div
+          className="panel-resize-handle panel-resize-handle--vertical"
+          onPointerDown={(e) => startDrag('right', e, rightColWidth)}
+          title="Drag to resize Live Monitor panel"
+        />
+
         {/* Right Column: Live Output Monitor */}
-        <aside className="monitor-panel glass-card">
+        <aside className="monitor-panel glass-card" style={{ width: rightColWidth, flexShrink: 0 }}>
           <div className="panel-title flex-between">
             <h3 className="panel-title-text">
               <MdTv className="panel-icon-live" /> Live Output Monitor
@@ -1100,7 +1259,7 @@ const PresentationControl: React.FC = () => {
               ✕
             </button>
           </div>
-          <div className="live-monitor-box" style={{ '--presentation-font': churchSettings.selectedFont, '--presentation-font-scale': churchSettings.fontSize, '--presentation-text-align': churchSettings.textAlign, ...(churchSettings.fontBold ? { '--presentation-font-weight': 'bold' } : {}), ...(churchSettings.fontItalic ? { '--presentation-font-style': 'italic' } : {}) } as React.CSSProperties}>
+          <div className="live-monitor-box" style={{ '--presentation-font': churchSettings.selectedFont, '--presentation-font-scale': churchSettings.fontSize, '--presentation-text-align': churchSettings.textAlign, '--presentation-font-weight': churchSettings.fontBold ? 'bold' : '400', '--presentation-font-style': churchSettings.fontItalic ? 'italic' : 'normal', '--presentation-text-color': churchSettings.textColor, ...(churchSettings.textGradient ? { '--presentation-text-gradient': churchSettings.textGradient } : {}) } as React.CSSProperties}>
             {bgLayer}
             {presentationInfo?.is_blank ? (
               <div className="blank-cover">Black Screen Cover Active</div>
@@ -1134,8 +1293,18 @@ const PresentationControl: React.FC = () => {
 
       </div>
 
+      {/* Horizontal resize handle: top area ↔ bottom panel */}
+      <div
+        className="panel-resize-handle panel-resize-handle--horizontal"
+        onPointerDown={(e) => startDrag('bottom', e, bottomHeight)}
+        title="Drag to resize resources panel"
+      />
+
       {/* Bottom Row: Tabbed Resources Explorer */}
-      <footer className="console-resources-explorer glass-card">
+      <footer
+        className="console-resources-explorer glass-card"
+        style={{ height: `${bottomHeight}px`, flexShrink: 0 }}
+      >
         <div className="explorer-tabs-bar">
           <button 
             className={`explorer-tab-btn ${activeTab === 'songs' ? 'active' : ''}`}
@@ -1198,7 +1367,25 @@ const PresentationControl: React.FC = () => {
                     }}
                     className="console-input"
                   />
+                  <button className="btn-icon" title="Song library settings">
+                    <MdSettings size={16} />
+                  </button>
+                  <button
+                    className={`btn-icon ${songViewMode === 'list' ? 'active' : ''}`}
+                    onClick={() => setSongViewMode('list')}
+                    title="List view"
+                  >
+                    <MdViewList size={16} />
+                  </button>
+                  <button
+                    className={`btn-icon ${songViewMode === 'grid' ? 'active' : ''}`}
+                    onClick={() => setSongViewMode('grid')}
+                    title="Grid view"
+                  >
+                    <MdViewModule size={16} />
+                  </button>
                 </div>
+                {songViewMode === 'list' ? (
                 <div className="pane-items-list scrollable">
                   {songsList.map(song => (
                     <div 
@@ -1213,6 +1400,25 @@ const PresentationControl: React.FC = () => {
                     </div>
                   ))}
                 </div>
+                ) : (
+                <div className="song-grid-layout scrollable">
+                  {songsList.map(song => (
+                    <div 
+                      key={song.id} 
+                      className={`song-grid-item ${selectedLibrarySong?.id === song.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedLibrarySong(song)}
+                    >
+                      <div className="song-grid-icon">
+                        <MdLibraryMusic size={24} />
+                      </div>
+                      <div className="song-grid-info">
+                        <strong>{song.title}</strong>
+                        <span>{song.key ? `Key: ${song.key}` : 'No key'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                )}
               </div>
               <div className="pane-right scrollable">
                 {selectedLibrarySong ? (
@@ -1575,6 +1781,75 @@ const PresentationControl: React.FC = () => {
                     >
                       <MdFormatItalic size={18} />
                     </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Text Color Picker ────────────────────────────── */}
+              <div className="text-color-section">
+                <div className="text-color-header">
+                  <h4><MdColorLens size={16} /> Text Color</h4>
+                  <button
+                    className="text-color-reset-btn"
+                    onClick={handleResetTextColor}
+                    title="Reset to default color"
+                  >
+                    <MdRestore size={14} /> Default
+                  </button>
+                </div>
+
+                <div className="color-swatches">
+                  {PRESET_COLORS.map(color => {
+                    const isActive = !churchSettings.textGradient && churchSettings.textColor === color;
+                    const isFavorite = (churchSettings.favoriteColors || []).includes(color);
+                    return (
+                      <div key={color} className="color-swatch-wrapper">
+                        <button
+                          className={`color-swatch ${isActive ? 'active' : ''}`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => handleTextColorChange(color)}
+                          title={color}
+                        />
+                        <button
+                          className={`color-fav-btn ${isFavorite ? 'faved' : ''}`}
+                          onClick={(e) => { e.stopPropagation(); toggleFavoriteColor(color); }}
+                          title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                          {isFavorite ? <MdFavorite size={8} /> : <MdFavoriteBorder size={8} />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <div className="color-swatch-wrapper">
+                    <label className={`color-swatch color-picker-swatch ${!churchSettings.textGradient && !PRESET_COLORS.includes(churchSettings.textColor) ? 'active' : ''}`} title="Custom color">
+                      <input
+                        type="color"
+                        value={churchSettings.textGradient ? '#f0f4ff' : churchSettings.textColor}
+                        onChange={(e) => handleTextColorChange(e.target.value)}
+                        className="color-picker-input"
+                      />
+                      <MdColorLens size={16} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="gradient-section">
+                  <label className="gradient-label">Gradient Presets</label>
+                  <div className="gradient-presets">
+                    {GRADIENT_PRESETS.map(g => {
+                      const isActive = churchSettings.textGradient === g.value;
+                      return (
+                        <button
+                          key={g.value}
+                          className={`gradient-swatch ${isActive ? 'active' : ''}`}
+                          style={{ background: g.value }}
+                          onClick={() => handleGradientSelect(g.value)}
+                          title={g.name}
+                        >
+                          <span className="gradient-swatch-name">{g.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

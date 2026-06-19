@@ -229,8 +229,10 @@ const OutputWindow: React.FC = () => {
     '--presentation-font': settings.selectedFont,
     '--presentation-font-scale': settings.fontSize,
     '--presentation-text-align': settings.textAlign,
-    ...(settings.fontBold ? { '--presentation-font-weight': 'bold' as const } : {}),
-    ...(settings.fontItalic ? { '--presentation-font-style': 'italic' as const } : {}),
+    '--presentation-font-weight': settings.fontBold ? 'bold' : '400',
+    '--presentation-font-style': settings.fontItalic ? 'italic' : 'normal',
+    '--presentation-text-color': settings.textColor,
+    ...(settings.textGradient ? { '--presentation-text-gradient': settings.textGradient } : {}),
   } as React.CSSProperties;
 
   if (isBlank) {
@@ -325,7 +327,7 @@ const OutputWindow: React.FC = () => {
         </div>
         {settings.tickerEnabled && settings.tickerText && (
           <div className="news-ticker">
-            <div className="ticker-label">LATEST</div>
+            <div className="ticker-label">{settings.tickerLabel}</div>
             <div className="ticker-text-container">
               <div className="ticker-text">{settings.tickerText}</div>
             </div>
@@ -488,7 +490,7 @@ const OutputWindow: React.FC = () => {
 
       {settings.tickerEnabled && settings.tickerText && (
         <div className="news-ticker">
-          <div className="ticker-label">LATEST</div>
+          <div className="ticker-label">{settings.tickerLabel}</div>
           <div className="ticker-text-container">
             <div className="ticker-text">{settings.tickerText}</div>
           </div>

@@ -473,3 +473,68 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.btn-icon.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.view-toggle-group {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.song-list {
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.song-list-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  transition: background-color 0.12s ease;
+}
+
+.song-list-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.song-list-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 200px;
+  flex-shrink: 0;
+}
+
+.song-list-info strong {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.song-list-preview {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song-list-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}

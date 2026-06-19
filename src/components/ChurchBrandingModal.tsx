@@ -143,15 +143,27 @@ const ChurchBrandingModal: React.FC<Props> = ({ onClose }) => {
               </div>
 
               {settings.tickerEnabled && (
-                <div className="form-group">
-                  <label>Ticker Custom Text</label>
-                  <textarea 
-                    rows={4}
-                    value={settings.tickerText}
-                    onChange={e => setSettings({ ...settings, tickerText: e.target.value })}
-                    placeholder="e.g. Welcome to Sunday Service! Join our mid-week Bible study..."
-                  />
-                </div>
+                <>
+                  <div className="form-group">
+                    <label>Ticker Label</label>
+                    <input
+                      type="text"
+                      className="branding-input"
+                      value={settings.tickerLabel}
+                      onChange={e => setSettings({ ...settings, tickerLabel: e.target.value })}
+                      placeholder="e.g. Alert!, News, Announcement"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Ticker Custom Text</label>
+                    <textarea 
+                      rows={4}
+                      value={settings.tickerText}
+                      onChange={e => setSettings({ ...settings, tickerText: e.target.value })}
+                      placeholder="e.g. Welcome to Sunday Service! Join our mid-week Bible study..."
+                    />
+                  </div>
+                </>
               )}
             </div>
           )}
