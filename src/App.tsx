@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { MdDashboard, MdMonitor, MdLibraryMusic, MdBook, MdEvent, MdCheckCircle, MdImage } from 'react-icons/md';
+import { MdDashboard, MdMonitor, MdLibraryMusic, MdBook, MdEvent, MdCheckCircle, MdImage, MdSchedule } from 'react-icons/md';
 import './App.css';
 import SongLibrary from './components/SongLibrary';
 import ServiceManager from './components/ServiceManager';
@@ -13,8 +13,10 @@ import BibleBrowser from './components/BibleBrowser';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import MediaPlayer from './components/MediaPlayer';
+import ScheduleManager from './components/ScheduleManager';
 import { churchSettingsApi, ChurchSettings } from './api/churchSettings';
 import { mediaApi } from './api/media';
+import { AppStateProvider } from './context/AppStateContext';
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -134,6 +136,16 @@ function App() {
                 Media
               </Link>
             </li>
+            <li>
+              <Link
+                to="/schedule"
+                className={activeView === 'schedule' ? 'active' : ''}
+                onClick={() => setActiveView('schedule')}
+              >
+                <span className="icon"><MdSchedule /></span>
+                Schedule
+              </Link>
+            </li>
           </ul>
           <div className="sidebar-separator" />
           <div className="sidebar-footer">
@@ -148,17 +160,20 @@ function App() {
         </nav>
 
         <main className="main-content">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/presentation" element={<PresentationControl />} />
-            <Route path="/songs" element={<SongLibrary />} />
-            <Route path="/bible" element={<BibleBrowser />} />
-            <Route path="/timer" element={<TimerDisplay />} />
-            <Route path="/services" element={<ServiceManager />} />
-            <Route path="/media" element={<MediaPlayer />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          </Routes>
+          <AppStateProvider>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/presentation" element={<PresentationControl />} />
+              <Route path="/songs" element={<SongLibrary />} />
+              <Route path="/bible" element={<BibleBrowser />} />
+              <Route path="/timer" element={<TimerDisplay />} />
+              <Route path="/services" element={<ServiceManager />} />
+              <Route path="/media" element={<MediaPlayer />} />
+              <Route path="/schedule" element={<ScheduleManager />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            </Routes>
+          </AppStateProvider>
         </main>
       </div>
       <Toaster

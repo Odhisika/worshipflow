@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { mediaApi, LocalMediaFile } from '../api/media';
+import { useAppState } from '../context/AppStateContext';
 import {
     MdPlayArrow, MdPause, MdSkipNext, MdSkipPrevious,
     MdVolumeUp, MdVolumeOff, MdShuffle, MdRepeat, MdFullscreen,
@@ -30,33 +31,27 @@ const termLog = (level: 'info' | 'warn' | 'error', ...args: unknown[]) => {
 };
 
 const MediaPlayer: React.FC = () => {
+    const { state, updateState } = useAppState();
+    const {
+        audioPlaylist, currentAudioIndex, isAudioPlaying,
+        audioVolume, isMuted, isShuffle, isRepeat,
+        trackDurations, playableFallbacks, preparingPlayback,
+        videoPlaylist, currentVideoIndex, isVideoPlaying,
+        videoVolume, isVideoMuted,
+    } = state;
+
     const [activeTab, setActiveTab] = useState<Tab>('audio');
 
-    // ── Audio ──────────────────────────────────────────────────────────────
-    const [audioPlaylist, setAudioPlaylist] = useState<LocalMediaFile[]>([]);
-    const [currentAudioIndex, setCurrentAudioIndex] = useState(-1);
-    const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+    // ── Audio local state ──────────────────────────────────────────────────
     const [audioProgress, setAudioProgress] = useState(0);
     const [audioDuration, setAudioDuration] = useState(0);
-    const [audioVolume, setAudioVolume] = useState(1);
-    const [isMuted, setIsMuted] = useState(false);
-    const [isShuffle, setIsShuffle] = useState(false);
-    const [isRepeat, setIsRepeat] = useState(false);
-    const [trackDurations, setTrackDurations] = useState<Record<string, number>>({});
 
-    // ── Video ──────────────────────────────────────────────────────────────
-    const [videoPlaylist, setVideoPlaylist] = useState<LocalMediaFile[]>([]);
-    const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
-    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+    // ── Video local state ──────────────────────────────────────────────────
     const [videoProgress, setVideoProgress] = useState(0);
     const [videoDuration, setVideoDuration] = useState(0);
     const [showVideoControls, setShowVideoControls] = useState(true);
-    const [videoVolume, setVideoVolume] = useState(1);
-    const [isVideoMuted, setIsVideoMuted] = useState(false);
 
     const [playbackError, setPlaybackError] = useState<string | null>(null);
-    const [playableFallbacks, setPlayableFallbacks] = useState<Record<string, string>>({});
-    const [preparingPlayback, setPreparingPlayback] = useState<Record<string, boolean>>({});
     const [resolvedAudioUrl, setResolvedAudioUrl] = useState('');
     const [resolvedVideoUrl, setResolvedVideoUrl] = useState('');
 
@@ -161,18 +156,18 @@ const MediaPlayer: React.FC = () => {
         if (playableFallbacks[file.path] || preparingPlayback[file.path]) return;
 
         const label = mediaType === 'audio' ? 'Audio' : 'Video';
-        setPreparingPlayback(prev => ({ ...prev, [file.path]: true }));
+        updateState(prev => ({ preparingPlayback: { ...prev.preparingPlayback, [file.path]: true } }));
         setPlaybackError(`${label}: Converting unsupported format — this may take a minute…`);
 
         try {
             const convertedPath = await mediaApi.prepareForPlayback(file.path, mediaType);
             if (!convertedPath) throw new Error('Conversion returned no output file.');
-            setPlayableFallbacks(prev => ({ ...prev, [file.path]: convertedPath }));
+            updateState(prev => ({ playableFallbacks: { ...prev.playableFallbacks, [file.path]: convertedPath } }));
             setPlaybackError(null);
         } catch (error) {
             setPlaybackError(`${label}: Cannot play this file. ${errorMessage(error)}`);
         } finally {
-            setPreparingPlayback(prev => { const n = { ...prev }; delete n[file.path]; return n; });
+            updateState(prev => { const n = { ...prev.preparingPlayback }; delete n[file.path]; return { preparingPlayback: n }; });
         }
     }, [playableFallbacks, preparingPlayback]);
 
@@ -188,7 +183,7 @@ const MediaPlayer: React.FC = () => {
             el.play().catch(e => {
                 termLog('error', 'Audio play() rejected:', e.message);
                 setPlaybackError(`Audio: ${e.message}`);
-                setIsAudioPlaying(false);
+                updateState({ isAudioPlaying: false });
             });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -204,7 +199,7 @@ const MediaPlayer: React.FC = () => {
             setAudioDuration(el.duration);
             // Cache duration for the track list
             if (currentAudio) {
-                setTrackDurations(prev => ({ ...prev, [currentAudio.path]: el.duration }));
+                updateState(prev => ({ trackDurations: { ...prev.trackDurations, [currentAudio.path]: el.duration } }));
             }
         };
         const onEnded = () => {
@@ -215,8 +210,8 @@ const MediaPlayer: React.FC = () => {
                 playNextAudio();
             }
         };
-        const onPlay = () => setIsAudioPlaying(true);
-        const onPause = () => setIsAudioPlaying(false);
+        const onPlay = () => updateState({ isAudioPlaying: true });
+        const onPause = () => updateState({ isAudioPlaying: false });
         const onError = () => {
             if (!currentAudio) return; // Ignore empty/unset source load errors
             const code = el.error?.code;
@@ -234,7 +229,7 @@ const MediaPlayer: React.FC = () => {
                 void convertAndRetry('audio', currentAudio);
             } else {
                 setPlaybackError(describeMediaError('Audio', el, currentAudio));
-                setIsAudioPlaying(false);
+                updateState({ isAudioPlaying: false });
             }
         };
 
@@ -265,8 +260,8 @@ const MediaPlayer: React.FC = () => {
     const playAudio = useCallback((index: number) => {
         if (index >= 0 && index < audioPlaylist.length) {
             setPlaybackError(null);
-            setCurrentAudioIndex(index);
-            setIsAudioPlaying(true);
+            updateState({ currentAudioIndex: index });
+            updateState({ isAudioPlaying: true });
         }
     }, [audioPlaylist.length]);
 
@@ -299,9 +294,9 @@ const MediaPlayer: React.FC = () => {
             if (folderPath) {
                 const files = await mediaApi.scanFolderForMedia(folderPath, 'audio');
                 if (files.length > 0) {
-                    setAudioPlaylist(files);
-                    setCurrentAudioIndex(0);
-                    setIsAudioPlaying(true);
+                    updateState({ audioPlaylist: files });
+                    updateState({ currentAudioIndex: 0 });
+                    updateState({ isAudioPlaying: true });
                 }
             }
         } catch (e) { termLog('error', 'handleOpenFolder failed:', errorMessage(e)); }
@@ -312,13 +307,15 @@ const MediaPlayer: React.FC = () => {
             const paths = await mediaApi.openMediaFileDialog('audio');
             if (paths.length > 0) {
                 const newFiles = paths.map(createLocalMediaFile);
-                setAudioPlaylist(prev => {
-                    const merged = [...prev, ...newFiles];
-                    return merged.filter((f, i, self) => i === self.findIndex(t => t.path === f.path));
-                });
+                    updateState(prev => ({
+                        audioPlaylist: (() => {
+                            const merged = [...prev.audioPlaylist, ...newFiles];
+                            return merged.filter((f, i, self) => i === self.findIndex(t => t.path === f.path));
+                        })(),
+                    }));
                 if (currentAudioIndex === -1) {
-                    setCurrentAudioIndex(0);
-                    setIsAudioPlaying(true);
+                    updateState({ currentAudioIndex: 0 });
+                    updateState({ isAudioPlaying: true });
                 }
             }
         } catch (e) { termLog('error', 'handleOpenAudioFiles failed:', errorMessage(e)); }
@@ -347,9 +344,9 @@ const MediaPlayer: React.FC = () => {
         el.play().catch(e => {
             termLog('error', 'Video play() rejected:', e.message);
             setPlaybackError(`Video: ${e.message}`);
-            setIsVideoPlaying(false);
+            updateState({ isVideoPlaying: false });
         });
-        setIsVideoPlaying(true);
+        updateState({ isVideoPlaying: true });
     }, [videoSrc]);
 
     // ── Video: event listeners ─────────────────────────────────────────────
@@ -366,15 +363,15 @@ const MediaPlayer: React.FC = () => {
             termLog('info', 'Video canplay fired:', { currentSrc: el.currentSrc, readyState: el.readyState });
         };
         const onEnded = () => {
-            setIsVideoPlaying(false);
+            updateState({ isVideoPlaying: false });
             // Auto-advance to next video
             if (currentVideoIndex < videoPlaylist.length - 1) {
-                setCurrentVideoIndex(i => i + 1);
-                setIsVideoPlaying(true);
+                updateState(prev => ({ currentVideoIndex: prev.currentVideoIndex + 1 }));
+                updateState({ isVideoPlaying: true });
             }
         };
-        const onPlay = () => setIsVideoPlaying(true);
-        const onPause = () => setIsVideoPlaying(false);
+        const onPlay = () => updateState({ isVideoPlaying: true });
+        const onPause = () => updateState({ isVideoPlaying: false });
         const onError = () => {
             if (!currentVideo) return; // Ignore empty/unset source load errors
             const code = el.error?.code;
@@ -391,7 +388,7 @@ const MediaPlayer: React.FC = () => {
                 void convertAndRetry('video', currentVideo);
             } else {
                 setPlaybackError(describeMediaError('Video', el, currentVideo));
-                setIsVideoPlaying(false);
+                updateState({ isVideoPlaying: false });
             }
         };
 
@@ -457,12 +454,14 @@ const MediaPlayer: React.FC = () => {
             if (paths.length > 0) {
                 const newFiles = paths.map(createLocalMediaFile);
                 termLog('info', 'created LocalMediaFile entries:', newFiles);
-                setVideoPlaylist(prev => {
-                    const merged = [...prev, ...newFiles];
-                    return merged.filter((f, i, self) => i === self.findIndex(t => t.path === f.path));
-                });
+                    updateState(prev => ({
+                        videoPlaylist: (() => {
+                            const merged = [...prev.videoPlaylist, ...newFiles];
+                            return merged.filter((f, i, self) => i === self.findIndex(t => t.path === f.path));
+                        })(),
+                    }));
                 if (currentVideoIndex === -1) {
-                    setCurrentVideoIndex(0);
+                    updateState({ currentVideoIndex: 0 });
                 }
                 setActiveTab('video');
             }
@@ -477,8 +476,8 @@ const MediaPlayer: React.FC = () => {
                 const files = await mediaApi.scanFolderForMedia(folderPath, 'video');
                 termLog('info', 'scanFolderForMedia returned files:', files);
                 if (files.length > 0) {
-                    setVideoPlaylist(files);
-                    setCurrentVideoIndex(0);
+                    updateState({ videoPlaylist: files });
+                    updateState({ currentVideoIndex: 0 });
                     setActiveTab('video');
                 }
             }
@@ -489,7 +488,7 @@ const MediaPlayer: React.FC = () => {
         if (index < 0 || index >= videoPlaylist.length) return;
         const file = videoPlaylist[index];
         setPlaybackError(null);
-        setCurrentVideoIndex(index);
+        updateState({ currentVideoIndex: index });
 
         // If the format is not natively supported AND we haven't converted it yet,
         // start conversion immediately so the converting overlay appears right away
@@ -705,7 +704,7 @@ const MediaPlayer: React.FC = () => {
 
                                     <div className={`video-overlay ${showVideoControls ? 'visible' : ''}`}>
                                         <div className="overlay-top">
-                                            <button className="back-btn" onClick={e => { e.stopPropagation(); setCurrentVideoIndex(-1); }}>
+                                            <button className="back-btn" onClick={e => { e.stopPropagation(); updateState({ currentVideoIndex: -1 }); }}>
                                                 ← Back
                                             </button>
                                             <h3>{currentVideo.name}</h3>
@@ -737,13 +736,13 @@ const MediaPlayer: React.FC = () => {
                                                         <MdSkipNext size={32} />
                                                     </button>
                                                     <div className="vol-group" onClick={e => e.stopPropagation()}>
-                                                        <button onClick={() => setIsVideoMuted(!isVideoMuted)}>
+                                                        <button onClick={() => updateState({ isVideoMuted: !isVideoMuted })}>
                                                             {isVideoMuted || videoVolume === 0 ? <MdVolumeOff size={26} /> : <MdVolumeUp size={26} />}
                                                         </button>
                                                         <input
                                                             type="range" min="0" max="1" step="0.01"
                                                             value={isVideoMuted ? 0 : videoVolume}
-                                                            onChange={e => setVideoVolume(Number(e.target.value))}
+                                                            onChange={e => updateState({ videoVolume: Number(e.target.value) })}
                                                             className="vol-range"
                                                         />
                                                     </div>
@@ -782,7 +781,7 @@ const MediaPlayer: React.FC = () => {
 
                 <div className="player-main-controls">
                     <div className="buttons-row">
-                        <button className={`secondary-btn ${isShuffle ? 'active' : ''}`} onClick={() => setIsShuffle(!isShuffle)} title="Shuffle">
+                        <button className={`secondary-btn ${isShuffle ? 'active' : ''}`} onClick={() => updateState({ isShuffle: !isShuffle })} title="Shuffle">
                             <MdShuffle size={20} />
                         </button>
                         <button className="main-btn" onClick={playPrevAudio} disabled={!currentAudio}>
@@ -794,7 +793,7 @@ const MediaPlayer: React.FC = () => {
                         <button className="main-btn" onClick={playNextAudio} disabled={!currentAudio}>
                             <MdSkipNext size={28} />
                         </button>
-                        <button className={`secondary-btn ${isRepeat ? 'active' : ''}`} onClick={() => setIsRepeat(!isRepeat)} title="Repeat">
+                        <button className={`secondary-btn ${isRepeat ? 'active' : ''}`} onClick={() => updateState({ isRepeat: !isRepeat })} title="Repeat">
                             <MdRepeat size={20} />
                         </button>
                     </div>
@@ -822,13 +821,13 @@ const MediaPlayer: React.FC = () => {
                 <div className="player-side-controls">
                     <MdPlaylistPlay size={24} title={`${audioPlaylist.length} tracks`} />
                     <div className="vol-group">
-                        <button onClick={() => setIsMuted(!isMuted)}>
+                        <button onClick={() => updateState({ isMuted: !isMuted })}>
                             {isMuted || audioVolume === 0 ? <MdVolumeOff size={20} /> : <MdVolumeUp size={20} />}
                         </button>
                         <input
                             type="range" min="0" max="1" step="0.01"
                             value={isMuted ? 0 : audioVolume}
-                            onChange={e => setAudioVolume(Number(e.target.value))}
+                            onChange={e => updateState({ audioVolume: Number(e.target.value) })}
                             className="vol-range"
                         />
                     </div>

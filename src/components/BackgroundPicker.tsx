@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { mediaApi } from '../api/media';
+import { useAppState } from '../context/AppStateContext';
 import { MdPalette, MdAutoAwesome, MdImage, MdFolderOpen, MdCheckCircle, MdClose, MdMovie } from 'react-icons/md';
 import './BackgroundPicker.css';
 
@@ -76,21 +77,16 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
   onApply,
   onClose,
 }) => {
+  const { state, updateState } = useAppState();
   const [activeTab, setActiveTab] = useState<'premade' | 'upload' | 'video'>('premade');
   const [selected, setSelected] = useState<string | null>(currentBackground);
-  const [uploadedPath, setUploadedPath] = useState<string | null>(
-    currentBackground && !currentBackground.startsWith('builtin:')
-      ? currentBackground
-      : null
-  );
-  const [uploadedVideoPath, setUploadedVideoPath] = useState<string | null>(null);
 
   const handleBrowse = async () => {
     try {
       const paths = await mediaApi.openMediaFileDialog('image');
       if (paths && paths.length > 0) {
         const path = paths[0];
-        setUploadedPath(path);
+        updateState({ backgroundUploadImagePath: path });
         setSelected(path);
       }
     } catch (err) {
@@ -103,7 +99,7 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
       const paths = await mediaApi.openMediaFileDialog('video');
       if (paths && paths.length > 0) {
         const path = paths[0];
-        setUploadedVideoPath(path);
+        updateState({ backgroundUploadVideoPath: path });
         setSelected(path);
       }
     } catch (err) {
@@ -205,18 +201,18 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
                   <MdFolderOpen size={16} /> Choose Image
                 </button>
               </div>
-              {uploadedPath && (
+              {state.backgroundUploadImagePath && (
                 <div
-                  className={`bg-selected-image ${selected === uploadedPath ? 'selected-ring' : ''}`}
+                  className={`bg-selected-image ${selected === state.backgroundUploadImagePath ? 'selected-ring' : ''}`}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => setSelected(uploadedPath)}
+                  onClick={() => setSelected(state.backgroundUploadImagePath)}
                 >
                   <img
-                    src={mediaApi.getAssetUrl(uploadedPath)}
+                    src={mediaApi.getAssetUrl(state.backgroundUploadImagePath)}
                     alt="Selected background"
                   />
                   <div className="bg-selected-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <MdCheckCircle size={14} /> {uploadedPath.split('/').pop()}
+                    <MdCheckCircle size={14} /> {state.backgroundUploadImagePath.split('/').pop()}
                   </div>
                 </div>
               )}
@@ -239,14 +235,14 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
                   <MdFolderOpen size={16} /> Choose Video
                 </button>
               </div>
-              {uploadedVideoPath && (
+              {state.backgroundUploadVideoPath && (
                 <div
-                  className={`bg-selected-image ${selected === uploadedVideoPath ? 'selected-ring' : ''}`}
+                  className={`bg-selected-image ${selected === state.backgroundUploadVideoPath ? 'selected-ring' : ''}`}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => setSelected(uploadedVideoPath)}
+                  onClick={() => setSelected(state.backgroundUploadVideoPath)}
                 >
                   <video
-                    src={mediaApi.getAssetUrl(uploadedVideoPath)}
+                    src={mediaApi.getAssetUrl(state.backgroundUploadVideoPath)}
                     muted
                     autoPlay
                     loop
@@ -254,7 +250,7 @@ const BackgroundPicker: React.FC<BackgroundPickerProps> = ({
                     style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', display: 'block' }}
                   />
                   <div className="bg-selected-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <MdCheckCircle size={14} /> {uploadedVideoPath.split('/').pop()}
+                    <MdCheckCircle size={14} /> {state.backgroundUploadVideoPath.split('/').pop()}
                   </div>
                 </div>
               )}

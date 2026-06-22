@@ -22,6 +22,7 @@ import { churchSettingsApi, ChurchSettings } from '../api/churchSettings';
 import { mediaApi } from '../api/media';
 import BackgroundPicker from './BackgroundPicker';
 import RichTextEditor from './RichTextEditor';
+import { useAppState } from '../context/AppStateContext';
 import './PresentationControl.css';
 
 type SavedTextSlide = {
@@ -128,9 +129,21 @@ const PresentationControl: React.FC = () => {
   };
   
   // Library - Media states
-  const [mediaFiles, setMediaFiles] = useState<Array<{ name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' }>>([]);
-  const [selectedMediaFile, setSelectedMediaFile] = useState<{ name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' } | null>(null);
-  const [mediaTypeFilter, setMediaTypeFilter] = useState<'image' | 'video' | 'audio'>('image');
+  const { state: appState, updateState } = useAppState();
+  const mediaFiles = appState.presentationMediaFiles;
+  const selectedMediaFile = appState.selectedPresentationMediaFile;
+  const mediaTypeFilter = appState.presentationMediaTypeFilter;
+  const setMediaFiles = (files: Array<{ name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' }> | ((prev: Array<{ name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' }>) => Array<{ name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' }>)) => {
+    if (typeof files === 'function') {
+      updateState(prev => ({ presentationMediaFiles: files(prev.presentationMediaFiles) }));
+    } else {
+      updateState({ presentationMediaFiles: files });
+    }
+  };
+  const setSelectedMediaFile = (file: { name: string; path: string; isVideo: boolean; mediaType: 'image' | 'video' | 'audio' } | null) =>
+    updateState({ selectedPresentationMediaFile: file });
+  const setMediaTypeFilter = (filter: 'image' | 'video' | 'audio') =>
+    updateState({ presentationMediaTypeFilter: filter });
 
   // Window Capture states
   const [capturableWindows, setCapturableWindows] = useState<Array<{ id: string; title: string; app_name: string }>>([]);
@@ -141,7 +154,8 @@ const PresentationControl: React.FC = () => {
   const [bibleWebUrl, setBibleWebUrl] = useState('https://www.biblegateway.com');
 
   // Background picker & Branding modal states
-  const [currentBackground, setCurrentBackground] = useState<string | null>(null);
+  const currentBackground = appState.currentBackground;
+  const setCurrentBackground = (bg: string | null) => updateState({ currentBackground: bg });
   const [showBgPicker, setShowBgPicker] = useState<boolean>(false);
   const [showBrandingModal, setShowBrandingModal] = useState<boolean>(false);
 
