@@ -18,11 +18,11 @@ export const presentationApi = {
   addSlides: (slides: Slide[]): Promise<PresentationInfo> =>
     invoke('add_slides_to_presentation', { slides }),
   
-  addTextSlide: (title: string | null, content: string): Promise<PresentationInfo> =>
-    invoke('add_text_slide', { title, content }),
+  addTextSlide: (title: string | null, content: string, backgroundPath?: string | null): Promise<PresentationInfo> =>
+    invoke('add_text_slide', { title, content, backgroundPath }),
   
-  addBibleSlide: (book: string, chapter: number, verses: string, text: string): Promise<PresentationInfo> =>
-    invoke('add_bible_slide', { book, chapter, verses, text }),
+  addBibleSlide: (book: string, chapter: number, verses: string, text: string, backgroundPath?: string | null): Promise<PresentationInfo> =>
+    invoke('add_bible_slide', { book, chapter, verses, text, backgroundPath }),
   
   // Navigation
   nextSlide: (): Promise<PresentationInfo> =>

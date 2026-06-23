@@ -54,8 +54,9 @@ pub async fn add_text_slide(
     app: tauri::AppHandle,
     title: Option<String>,
     content: String,
+    background_path: Option<String>,
 ) -> AppResult<PresentationInfo> {
-    let slide = generate_text_slide(title, content);
+    let slide = generate_text_slide(title, content, background_path);
 
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.add_slide_and_goto(slide);
@@ -74,8 +75,9 @@ pub async fn add_bible_slide(
     chapter: i32,
     verses: String,
     text: String,
+    background_path: Option<String>,
 ) -> AppResult<PresentationInfo> {
-    let slide = generate_bible_slide(&book, chapter, &verses, &text);
+    let slide = generate_bible_slide(&book, chapter, &verses, &text, background_path);
 
     let mut presentation = PRESENTATION.lock().unwrap();
     presentation.add_slide_and_goto(slide);
@@ -248,9 +250,9 @@ pub async fn open_presentation_window(app: tauri::AppHandle) -> Result<(), Strin
 
     // If window already exists, reposition on the correct monitor
     if let Some(win) = app.get_webview_window("output") {
-        win.set_fullscreen(false).map_err(|e| e.to_string())?;
         win.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: x as i32, y: y as i32 })).ok();
         win.set_size(tauri::Size::Physical(tauri::PhysicalSize { width: w as u32, height: h as u32 })).ok();
+        win.set_fullscreen(true).map_err(|e| e.to_string())?;
         win.show().map_err(|e| e.to_string())?;
         win.set_focus().map_err(|e| e.to_string())?;
         // Push current state directly to the output window so it doesn't rely on a stale loadState
@@ -267,7 +269,7 @@ pub async fn open_presentation_window(app: tauri::AppHandle) -> Result<(), Strin
         .decorations(false)
         .position(x, y)
         .inner_size(w, h)
-        .min_inner_size(400.0, 300.0)
+        .fullscreen(true)
         .build()
         .map_err(|e| e.to_string())?;
 

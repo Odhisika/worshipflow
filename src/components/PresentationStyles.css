@@ -109,9 +109,9 @@
   bottom: 0;
   left: 0;
   width: 100vw;
-  height: 6vh;
-  min-height: 48px;
-  background: rgba(15, 23, 42, 0.92);
+  height: calc(6vh * var(--ticker-font-scale, 1));
+  min-height: calc(48px * var(--ticker-font-scale, 1));
+  background: var(--ticker-bg-color, rgba(15, 23, 42, 0.92));
   display: flex;
   align-items: center;
   z-index: 100;
@@ -120,8 +120,8 @@
 }
 
 .ticker-label {
-  background: var(--primary-blue);
-  color: white;
+  background: var(--ticker-bg-color, var(--primary-blue));
+  color: var(--ticker-text-color, white);
   font-weight: 800;
   height: 100%;
   padding: 0 2vw;
@@ -130,7 +130,7 @@
   z-index: 101;
   text-transform: uppercase;
   letter-spacing: 2px;
-  font-size: clamp(0.8rem, 1.2vw, 1.4rem);
+  font-size: calc(clamp(0.8rem, 1.2vw, 1.4rem) * var(--ticker-font-scale, 1));
   box-shadow: 5px 0 15px rgba(0,0,0,0.5);
   white-space: nowrap;
 }
@@ -147,9 +147,9 @@
 .ticker-text {
   position: absolute;
   white-space: nowrap;
-  font-size: clamp(1rem, 1.6vw, 2rem);
+  font-size: calc(clamp(1rem, 1.6vw, 2rem) * var(--ticker-font-scale, 1));
   font-weight: 500;
-  color: #f1f5f9;
+  color: var(--ticker-text-color, #f1f5f9);
   padding-left: 100%;
   animation: tickerScroll 25s linear infinite;
 }
@@ -162,5 +162,5 @@
 /* Extra bottom padding so content doesn't hide under the ticker */
 .style-classic .slide-display,
 .style-cinematic .slide-display {
-  padding-bottom: 8vh;
+  padding-bottom: calc(8vh * var(--ticker-font-scale, 1));
 }

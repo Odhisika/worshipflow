@@ -277,7 +277,7 @@ fn detect_stanza_label(section: &str) -> Option<(&str, String)> {
     None
 }
 
-pub fn generate_bible_slide(book: &str, chapter: i32, verses: &str, text: &str) -> Slide {
+pub fn generate_bible_slide(book: &str, chapter: i32, verses: &str, text: &str, background_path: Option<String>) -> Slide {
     let reference = format!("{} {}:{}", book, chapter, verses);
     
     Slide {
@@ -286,20 +286,20 @@ pub fn generate_bible_slide(book: &str, chapter: i32, verses: &str, text: &str) 
         title: Some(reference.clone()),
         content: format!("{}\n\n{}", text, reference),
         media_path: None,
-        background_path: None,
+        background_path,
         order_index: 0,
         created_at: chrono::Utc::now(),
     }
 }
 
-pub fn generate_text_slide(title: Option<String>, content: String) -> Slide {
+pub fn generate_text_slide(title: Option<String>, content: String, background_path: Option<String>) -> Slide {
     Slide {
         id: uuid::Uuid::new_v4().to_string(),
         slide_type: SlideType::Text,
         title,
         content,
         media_path: None,
-        background_path: None,
+        background_path,
         order_index: 0,
         created_at: chrono::Utc::now(),
     }

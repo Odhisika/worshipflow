@@ -14,7 +14,8 @@ import {
   MdMovie, MdMusicNote, MdPublic, MdWallpaper, MdCreate, MdLandscape,
   MdCheckCircle, MdTextFields, MdFormatAlignLeft, MdFormatAlignCenter, MdFormatAlignRight,
   MdFormatBold, MdFormatItalic, MdViewModule, MdViewList, MdSettings,
-  MdColorLens, MdFavorite, MdFavoriteBorder, MdRestore
+  MdColorLens, MdFavorite, MdFavoriteBorder, MdRestore,
+  MdArrowUpward, MdArrowDownward
 } from 'react-icons/md';
 import { FiRefreshCw, FiHeart } from 'react-icons/fi';
 import ChurchBrandingModal from './ChurchBrandingModal';
@@ -58,15 +59,23 @@ const PresentationControl: React.FC = () => {
   
   // Library - Bible states
   const [bibleBooks, setBibleBooks] = useState<[string, string, number][]>([]);
-  const [selectedBibleBook, setSelectedBibleBook] = useState<string>('');
-  const [selectedBibleChapter, setSelectedBibleChapter] = useState<number>(1);
+  const [selectedBibleBook, setSelectedBibleBook] = useState<string>(() => {
+    try { return JSON.parse(localStorage.getItem('wf_bible_book') || '""'); } catch { return ''; }
+  });
+  const [selectedBibleChapter, setSelectedBibleChapter] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem('wf_bible_chapter') || '1'); } catch { return 1; }
+  });
   const [bibleVerses, setBibleVerses] = useState<BibleVerse[]>([]);
   const [selectedBibleVerse, setSelectedBibleVerse] = useState<BibleVerse | null>(null);
-  const [selectedVerseNumber, setSelectedVerseNumber] = useState<number>(1);
+  const [selectedVerseNumber, setSelectedVerseNumber] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem('wf_bible_verse') || '1'); } catch { return 1; }
+  });
   const [bibleSearchQuery, setBibleSearchQuery] = useState('');
   const [bibleSearchResults, setBibleSearchResults] = useState<BibleVerse[]>([]);
   const [isBibleSearching, setIsBibleSearching] = useState(false);
-  const [activeBibleVersion, setActiveBibleVersion] = useState('KJV');
+  const [activeBibleVersion, setActiveBibleVersion] = useState(() => {
+    try { const v = localStorage.getItem('wf_bible_version'); return v || 'KJV'; } catch { return 'KJV'; }
+  });
   const [bibleVersions, setBibleVersions] = useState<string[]>([]);
   const [bibleContext, setBibleContext] = useState<{ book: string; chapter: number; verse: number } | null>(null);
   const bibleContextRef = useRef(bibleContext);
@@ -75,6 +84,12 @@ const PresentationControl: React.FC = () => {
   const monitorContentRef = useRef<HTMLDivElement>(null);
   useEffect(() => { bibleContextRef.current = bibleContext; }, [bibleContext]);
   useEffect(() => { bibleVersesRef.current = bibleVerses; }, [bibleVerses]);
+
+  // Persist Bible position to localStorage
+  useEffect(() => { localStorage.setItem('wf_bible_book', JSON.stringify(selectedBibleBook)); }, [selectedBibleBook]);
+  useEffect(() => { localStorage.setItem('wf_bible_chapter', String(selectedBibleChapter)); }, [selectedBibleChapter]);
+  useEffect(() => { localStorage.setItem('wf_bible_verse', String(selectedVerseNumber)); }, [selectedVerseNumber]);
+  useEffect(() => { localStorage.setItem('wf_bible_version', activeBibleVersion); }, [activeBibleVersion]);
   
   // ── Resizable Panels State ──────────────────────────────────────────────────
   const [leftColWidth, setLeftColWidth] = useState(280);   // px
@@ -158,6 +173,33 @@ const PresentationControl: React.FC = () => {
   const setCurrentBackground = (bg: string | null) => updateState({ currentBackground: bg });
   const [showBgPicker, setShowBgPicker] = useState<boolean>(false);
   const [showBrandingModal, setShowBrandingModal] = useState<boolean>(false);
+
+  // Per-item background overrides (song id / bible verse key / announcement id -> bg path)
+  const [songBgOverrides, setSongBgOverrides] = useState<Record<string, string | null>>(() => {
+    try { return JSON.parse(localStorage.getItem('pres-song-bg') || '{}'); } catch { return {}; }
+  });
+  const [bibleBgOverrides, setBibleBgOverrides] = useState<Record<string, string | null>>(() => {
+    try { return JSON.parse(localStorage.getItem('pres-bible-bg') || '{}'); } catch { return {}; }
+  });
+  const [announcementBgOverrides, setAnnouncementBgOverrides] = useState<Record<string, string | null>>(() => {
+    try { return JSON.parse(localStorage.getItem('pres-announce-bg') || '{}'); } catch { return {}; }
+  });
+  const [pendingBgCallback, setPendingBgCallback] = useState<((bg: string | null) => void) | null>(null);
+  const [pendingBgInitial, setPendingBgInitial] = useState<string | null>(null);
+
+  // Per-activity background overrides
+  const [activityBgOverrides, setActivityBgOverrides] = useState<Record<string, string | null>>(() => {
+    try { return JSON.parse(localStorage.getItem('pres-activity-bg') || '{}'); } catch { return {}; }
+  });
+
+  // Edit Activity modal
+  const [showEditActivityModal, setShowEditActivityModal] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [editActivityName, setEditActivityName] = useState('');
+  const [editActivityDuration, setEditActivityDuration] = useState(10);
+  const [editActivityLeader, setEditActivityLeader] = useState('');
+  const [editActivityNotes, setEditActivityNotes] = useState('');
+
 
   // Custom slide Modal states
   const [showTextModal, setShowTextModal] = useState(false);
@@ -277,6 +319,12 @@ const PresentationControl: React.FC = () => {
   useEffect(() => {
     loadBibleBooks();
   }, [activeBibleVersion]);
+
+  // Persist background overrides to localStorage
+  useEffect(() => { localStorage.setItem('pres-song-bg', JSON.stringify(songBgOverrides)); }, [songBgOverrides]);
+  useEffect(() => { localStorage.setItem('pres-bible-bg', JSON.stringify(bibleBgOverrides)); }, [bibleBgOverrides]);
+  useEffect(() => { localStorage.setItem('pres-announce-bg', JSON.stringify(announcementBgOverrides)); }, [announcementBgOverrides]);
+  useEffect(() => { localStorage.setItem('pres-activity-bg', JSON.stringify(activityBgOverrides)); }, [activityBgOverrides]);
 
   // Load functions
   const loadServices = async () => {
@@ -506,6 +554,7 @@ const PresentationControl: React.FC = () => {
     try {
       setLoading(true);
       const notes = activity.notes || '';
+      const activityBgOverride = activityBgOverrides[activity.id];
       
       // Notes patterns: song_id: ..., bible_ref: ..., media_path: ...
       const songMatch = notes.match(/song_id:\s*([a-zA-Z0-9-]+)/i);
@@ -513,11 +562,16 @@ const PresentationControl: React.FC = () => {
       const mediaMatch = notes.match(/media_path:\s*([^\n]+)/i);
 
       if (songMatch) {
-        const info = await presentationApi.loadSong(songMatch[1]);
+        let info = await presentationApi.loadSong(songMatch[1]);
+        const songBg = activityBgOverride ?? churchSettingsApi.get().defaultSongBackground;
+        if (songBg) {
+          info = await presentationApi.setBackground(songBg);
+        }
         setPresentationInfo(info);
       } else if (bibleMatch) {
         const [_, book, chStr, versesStr, textStr] = bibleMatch;
-        const info = await presentationApi.addBibleSlide(book, parseInt(chStr), versesStr, textStr);
+        const bibleBg = activityBgOverride ?? churchSettingsApi.get().defaultBibleBackground;
+        const info = await presentationApi.addBibleSlide(book, parseInt(chStr), versesStr, textStr, bibleBg);
         setPresentationInfo(info);
       } else if (mediaMatch) {
         const info = await presentationApi.setBackground(mediaMatch[1]);
@@ -526,11 +580,16 @@ const PresentationControl: React.FC = () => {
         // Match by title in songs database
         const matchedSong = songsList.find(s => s.title.toLowerCase() === activity.name.toLowerCase());
         if (matchedSong) {
-          const info = await presentationApi.loadSong(matchedSong.id);
+          let info = await presentationApi.loadSong(matchedSong.id);
+          const songBg = activityBgOverride ?? churchSettingsApi.get().defaultSongBackground;
+          if (songBg) {
+            info = await presentationApi.setBackground(songBg);
+          }
           setPresentationInfo(info);
         } else {
           // Custom activity - present name with optional notes
-          const info = await presentationApi.addTextSlide(activity.name, activity.notes || '');
+          const activityBg = activityBgOverride ?? churchSettingsApi.get().defaultActivityBackground;
+          const info = await presentationApi.addTextSlide(activity.name, activity.notes || '', activityBg);
           setPresentationInfo(info);
         }
       }
@@ -609,6 +668,49 @@ const PresentationControl: React.FC = () => {
     }
   };
 
+  // Activity Edit functions
+  const moveActivity = async (index: number, direction: 'up' | 'down') => {
+    if (!selectedService) return;
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= activities.length) return;
+    const reordered = [...activities];
+    [reordered[index], reordered[newIndex]] = [reordered[newIndex], reordered[index]];
+    setActivities(reordered);
+    try {
+      await activityApi.reorder(selectedService.id, reordered.map(a => a.id));
+    } catch (err) {
+      console.error('Failed to reorder activities:', err);
+      loadActivities(selectedService.id);
+    }
+  };
+
+  const openEditActivityModal = (act: Activity) => {
+    setEditingActivity(act);
+    setEditActivityName(act.name);
+    setEditActivityDuration(act.duration_minutes);
+    setEditActivityLeader(act.leader || '');
+    setEditActivityNotes(act.notes || '');
+    setShowEditActivityModal(true);
+  };
+
+  const handleSaveEditActivity = async () => {
+    if (!editingActivity) return;
+    try {
+      await activityApi.update(editingActivity.id, {
+        service_id: editingActivity.service_id,
+        name: editActivityName,
+        duration_minutes: editActivityDuration,
+        leader: editActivityLeader || undefined,
+        notes: editActivityNotes || undefined,
+      });
+      setShowEditActivityModal(false);
+      setEditingActivity(null);
+      if (selectedService) loadActivities(selectedService.id);
+    } catch (err) {
+      console.error('Failed to update activity:', err);
+    }
+  };
+
   // Bible search handler
   const handleBibleSearch = async () => {
     if (!bibleSearchQuery.trim()) return;
@@ -638,6 +740,16 @@ const PresentationControl: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to open file dialog:', err);
+    }
+  };
+
+  // Remove media from the list
+  const handleRemoveMedia = (path: string) => {
+    if (window.confirm('Remove this media file from the list?')) {
+      setMediaFiles(prev => prev.filter(f => f.path !== path));
+      if (selectedMediaFile?.path === path) {
+        setSelectedMediaFile(null);
+      }
     }
   };
 
@@ -789,7 +901,12 @@ const PresentationControl: React.FC = () => {
   const presentSongImmediately = async (song: Song) => {
     try {
       setLoading(true);
-      const info = await presentationApi.loadSong(song.id);
+      let info = await presentationApi.loadSong(song.id);
+      const globalBg = churchSettingsApi.get().defaultSongBackground;
+      const bg = songBgOverrides[song.id] ?? globalBg;
+      if (bg) {
+        info = await presentationApi.setBackground(bg);
+      }
       setPresentationInfo(info);
       await loadSlidesList();
     } catch (err) {
@@ -802,7 +919,9 @@ const PresentationControl: React.FC = () => {
   const presentBibleImmediately = async (verse: BibleVerse) => {
     try {
       setLoading(true);
-      const info = await presentationApi.addBibleSlide(verse.book, verse.chapter, verse.verse.toString(), verse.text);
+      const globalBg = churchSettingsApi.get().defaultBibleBackground;
+      const bg = bibleBgOverrides[verse.id] ?? globalBg;
+      const info = await presentationApi.addBibleSlide(verse.book, verse.chapter, verse.verse.toString(), verse.text, bg);
       setPresentationInfo(info);
       setBibleContext({ book: verse.book, chapter: verse.chapter, verse: verse.verse });
       await loadSlidesList();
@@ -842,7 +961,9 @@ const PresentationControl: React.FC = () => {
   const presentAnnouncementImmediately = async (slide: SavedTextSlide) => {
     try {
       setLoading(true);
-      const info = await presentationApi.addTextSlide(slide.title || null, slide.content);
+      const globalBg = churchSettingsApi.get().defaultAnnouncementBackground;
+      const bg = announcementBgOverrides[slide.id] ?? globalBg;
+      const info = await presentationApi.addTextSlide(slide.title || null, slide.content, bg);
       setPresentationInfo(info);
       await loadSlidesList();
     } catch (err) {
@@ -945,12 +1066,17 @@ const PresentationControl: React.FC = () => {
   };
 
   const getCssBackgroundStyle = (bg: string | null): React.CSSProperties => {
-    if (!bg) return {};
+    if (!bg || bg.startsWith('builtin:')) return {};
     return {
       backgroundImage: `url(${mediaApi.getAssetUrl(bg)})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
     };
+  };
+
+  const getBuiltinBgClass = (bg: string | null | undefined): string => {
+    if (!bg || !bg.startsWith('builtin:')) return '';
+    return `bg-${bg.replace('builtin:', '')}`;
   };
 
   const bgIsVideo = currentBackground ? isVideoFile(currentBackground) : false;
@@ -986,7 +1112,7 @@ const PresentationControl: React.FC = () => {
         />
       ) : (
         <div 
-          className="live-bg-layer is-image"
+          className={`live-bg-layer ${currentBackground.startsWith('builtin:') ? getBuiltinBgClass(currentBackground) : 'is-image'}`}
           style={getCssBackgroundStyle(currentBackground)}
         />
       )}
@@ -1095,15 +1221,91 @@ const PresentationControl: React.FC = () => {
               <div className="empty-panel-text">No activities scheduled. Add items from resources below.</div>
             ) : (
               activities.map((act, index) => (
-                <div 
-                  key={act.id} 
+                <div
+                  key={act.id}
                   className="activity-item-card"
-                  onClick={() => handleActivityClick(act)}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', act.id);
+                    e.currentTarget.classList.add('dragging');
+                  }}
+                  onDragEnd={(e) => {
+                    e.currentTarget.classList.remove('dragging');
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    const target = e.currentTarget;
+                    const rect = target.getBoundingClientRect();
+                    const mid = rect.top + rect.height / 2;
+                    if (e.clientY < mid) {
+                      target.classList.add('drag-over-top');
+                      target.classList.remove('drag-over-bottom');
+                    } else {
+                      target.classList.add('drag-over-bottom');
+                      target.classList.remove('drag-over-top');
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    if (draggedId === act.id) return;
+                    const reordered = [...activities];
+                    const fromIdx = reordered.findIndex(a => a.id === draggedId);
+                    const toIdx = index;
+                    if (fromIdx === -1) return;
+                    const [moved] = reordered.splice(fromIdx, 1);
+                    reordered.splice(toIdx, 0, moved);
+                    setActivities(reordered);
+                    try {
+                      await activityApi.reorder(selectedService!.id, reordered.map(a => a.id));
+                    } catch (err) {
+                      console.error('Failed to reorder activities:', err);
+                      loadActivities(selectedService!.id);
+                    }
+                  }}
                 >
-                  <span className="activity-index">{index + 1}</span>
-                  <div className="activity-details">
-                    <h4>{act.name}</h4>
-                    <p>{act.leader ? `Leader: ${act.leader}` : 'No leader'} • {act.duration_minutes}m</p>
+                  <div className="activity-main-row" onClick={() => handleActivityClick(act)}>
+                    <span className="drag-handle" title="Drag to reorder">⠿</span>
+                    <span className="activity-index">{index + 1}</span>
+                    <div className="activity-details">
+                      <h4>{act.name}</h4>
+                      <p>{act.leader ? `Leader: ${act.leader}` : 'No leader'} • {act.duration_minutes}m{activityBgOverrides[act.id] ? ' • 🎨 BG set' : ''}</p>
+                    </div>
+                  </div>
+                  <div className="activity-actions">
+                    <button className="activity-action-btn" title="Move up" onClick={(e) => { e.stopPropagation(); moveActivity(index, 'up'); }} disabled={index === 0}>
+                      <MdArrowUpward size={14} />
+                    </button>
+                    <button className="activity-action-btn" title="Move down" onClick={(e) => { e.stopPropagation(); moveActivity(index, 'down'); }} disabled={index === activities.length - 1}>
+                      <MdArrowDownward size={14} />
+                    </button>
+                    <button className="activity-action-btn" title="Edit" onClick={(e) => { e.stopPropagation(); openEditActivityModal(act); }}>
+                      <MdEdit size={14} />
+                    </button>
+                    <button className="activity-action-btn" title="Set Background" onClick={(e) => {
+                      e.stopPropagation();
+                      setPendingBgCallback(() => (bg: string | null) => {
+                        setActivityBgOverrides(prev => ({ ...prev, [act.id]: bg }));
+                      });
+                      setPendingBgInitial(activityBgOverrides[act.id] ?? null);
+                      setShowBgPicker(true);
+                    }}>
+                      <MdWallpaper size={14} />
+                    </button>
+                    <button className="activity-action-btn btn-danger-outline" title="Delete" onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Delete activity "${act.name}"?`)) {
+                        activityApi.delete(act.id).then(() => {
+                          if (selectedService) loadActivities(selectedService.id);
+                        }).catch(err => console.error('Failed to delete activity:', err));
+                      }
+                    }}>
+                      <MdDelete size={14} />
+                    </button>
                   </div>
                 </div>
               ))
@@ -1451,6 +1653,15 @@ const PresentationControl: React.FC = () => {
                       <button className="preview-action-btn" onClick={() => addSongToSchedule(selectedLibrarySong)}>
                         <MdAdd size={16} /> Add to Schedule
                       </button>
+                      <button className="preview-action-btn" onClick={() => {
+                        setPendingBgCallback(() => (bg: string | null) => {
+                          setSongBgOverrides(prev => ({ ...prev, [selectedLibrarySong.id]: bg }));
+                        });
+                        setPendingBgInitial(songBgOverrides[selectedLibrarySong.id] ?? null);
+                        setShowBgPicker(true);
+                      }}>
+                        <MdWallpaper size={16} /> {songBgOverrides[selectedLibrarySong.id] ? 'Change Background' : 'Background'}
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -1534,19 +1745,25 @@ const PresentationControl: React.FC = () => {
                       <FiRefreshCw className="spinner" size={24} />
                       <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>Searching Bible...</p>
                     </div>
-                  ) : bibleSearchQuery.trim() && bibleSearchResults.length > 0 ? (
-                    bibleSearchResults.map(v => (
-                      <div 
-                        key={v.id} 
-                        className={`pane-item-row ${selectedBibleVerse?.id === v.id ? 'selected' : ''}`}
-                        onClick={() => setSelectedBibleVerse(v)}
-                      >
-                        <div className="pane-item-info">
-                          <strong>{v.book} {v.chapter}:{v.verse}</strong>
-                          <span className="text-truncate">{v.text}</span>
+                  ) : bibleSearchQuery.trim() ? (
+                    bibleSearchResults.length > 0 ? (
+                      bibleSearchResults.map(v => (
+                        <div 
+                          key={v.id} 
+                          className={`pane-item-row ${selectedBibleVerse?.id === v.id ? 'selected' : ''}`}
+                          onClick={() => setSelectedBibleVerse(v)}
+                        >
+                          <div className="pane-item-info">
+                            <strong>{v.book} {v.chapter}:{v.verse}</strong>
+                            <span className="text-truncate">{v.text}</span>
+                          </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="empty-preview-panel" style={{ padding: '2rem', textAlign: 'center' }}>
+                        No matches found for "{bibleSearchQuery}"
                       </div>
-                    ))
+                    )
                   ) : (
                     bibleVerses.map(v => (
                       <div 
@@ -1579,6 +1796,15 @@ const PresentationControl: React.FC = () => {
                       </button>
                       <button className="preview-action-btn" onClick={() => addBibleVerseToSchedule(selectedBibleVerse)}>
                         <MdAdd size={16} /> Add to Schedule
+                      </button>
+                      <button className="preview-action-btn" onClick={() => {
+                        setPendingBgCallback(() => (bg: string | null) => {
+                          setBibleBgOverrides(prev => ({ ...prev, [selectedBibleVerse.id]: bg }));
+                        });
+                        setPendingBgInitial(bibleBgOverrides[selectedBibleVerse.id] ?? null);
+                        setShowBgPicker(true);
+                      }}>
+                        <MdWallpaper size={16} /> {bibleBgOverrides[selectedBibleVerse.id] ? 'Change Background' : 'Background'}
                       </button>
                     </div>
                     <div className="bible-shortcut-hint">
@@ -1637,6 +1863,9 @@ const PresentationControl: React.FC = () => {
                             <strong>{m.name}</strong>
                             <span>★ Favorite {m.mediaType}</span>
                           </div>
+                          <button className="pane-item-remove-btn" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(m.path); }} title="Remove">
+                            <MdDelete size={14} />
+                          </button>
                         </div>
                       ))}
                       <div className="media-section-divider">All {mediaTypeFilter === 'image' ? 'Images' : mediaTypeFilter === 'video' ? 'Videos' : 'Audio'}</div>
@@ -1653,6 +1882,9 @@ const PresentationControl: React.FC = () => {
                           <strong>{m.name}</strong>
                           <span>{favoritePaths.has(m.path) ? '★ Favorite' : 'Uploaded ' + m.mediaType}</span>
                         </div>
+                        <button className="pane-item-remove-btn" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(m.path); }} title="Remove">
+                          <MdDelete size={14} />
+                        </button>
                       </div>
                     ))
                   ) : (
@@ -1716,6 +1948,9 @@ const PresentationControl: React.FC = () => {
                         onClick={() => toggleFavorite(selectedMediaFile.path)}
                       >
                         <FiHeart size={14} fill={favoritePaths.has(selectedMediaFile.path) ? 'currentColor' : 'none'} /> {favoritePaths.has(selectedMediaFile.path) ? 'Favorited' : 'Favorite'}
+                      </button>
+                      <button className="preview-action-btn btn-danger-outline" onClick={() => handleRemoveMedia(selectedMediaFile.path)}>
+                        <MdDelete size={14} /> Remove
                       </button>
                     </div>
                   </div>
@@ -2043,6 +2278,15 @@ const PresentationControl: React.FC = () => {
                         <MdAdd size={16} /> Add to Schedule
                       </button>
                       <button className="preview-action-btn" onClick={() => {
+                        setPendingBgCallback(() => (bg: string | null) => {
+                          setAnnouncementBgOverrides(prev => ({ ...prev, [selectedAnnouncement.id]: bg }));
+                        });
+                        setPendingBgInitial(announcementBgOverrides[selectedAnnouncement.id] ?? null);
+                        setShowBgPicker(true);
+                      }}>
+                        <MdWallpaper size={16} /> {announcementBgOverrides[selectedAnnouncement.id] ? 'Change Background' : 'Background'}
+                      </button>
+                      <button className="preview-action-btn" onClick={() => {
                         setCustomTextTitle(selectedAnnouncement.title);
                         setCustomTextContent(selectedAnnouncement.content);
                         setEditingSavedSlideId(selectedAnnouncement.id);
@@ -2073,9 +2317,22 @@ const PresentationControl: React.FC = () => {
       {/* Modals */}
       {showBgPicker && (
         <BackgroundPicker
-          currentBackground={currentBackground}
-          onApply={handleSetBackground}
-          onClose={() => setShowBgPicker(false)}
+          currentBackground={pendingBgInitial ?? currentBackground}
+          onApply={(bg) => {
+            if (pendingBgCallback) {
+              pendingBgCallback(bg);
+              setPendingBgCallback(null);
+              setPendingBgInitial(null);
+            } else {
+              handleSetBackground(bg);
+            }
+            setShowBgPicker(false);
+          }}
+          onClose={() => {
+            setPendingBgCallback(null);
+            setPendingBgInitial(null);
+            setShowBgPicker(false);
+          }}
         />
       )}
 
@@ -2118,6 +2375,67 @@ const PresentationControl: React.FC = () => {
               <button className="btn btn-secondary" onClick={() => setShowTextModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleSaveTextSlide} disabled={!customTextContent.trim()}>
                 Save Announcement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditActivityModal && (
+        <div className="text-slide-modal-overlay" onClick={() => setShowEditActivityModal(false)}>
+          <div className="text-slide-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="text-slide-modal-header">
+              <div className="text-slide-modal-title">
+                <MdEdit size={22} />
+                <span>Edit Activity</span>
+              </div>
+              <button className="text-slide-close-btn" onClick={() => setShowEditActivityModal(false)}>
+                <MdClose size={20} />
+              </button>
+            </div>
+
+            <div className="text-slide-modal-body">
+              <label className="text-slide-label">Activity Name</label>
+              <input
+                type="text"
+                className="text-slide-input"
+                placeholder="e.g. Worship Song"
+                value={editActivityName}
+                onChange={(e) => setEditActivityName(e.target.value)}
+              />
+
+              <label className="text-slide-label">Duration (minutes)</label>
+              <input
+                type="number"
+                className="text-slide-input"
+                min={1}
+                value={editActivityDuration}
+                onChange={(e) => setEditActivityDuration(Number(e.target.value))}
+              />
+
+              <label className="text-slide-label">Leader (optional)</label>
+              <input
+                type="text"
+                className="text-slide-input"
+                placeholder="e.g. John Doe"
+                value={editActivityLeader}
+                onChange={(e) => setEditActivityLeader(e.target.value)}
+              />
+
+              <label className="text-slide-label">Notes (optional)</label>
+              <textarea
+                className="text-slide-input text-slide-textarea"
+                rows={3}
+                placeholder="Notes for this activity"
+                value={editActivityNotes}
+                onChange={(e) => setEditActivityNotes(e.target.value)}
+              />
+            </div>
+
+            <div className="text-slide-modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowEditActivityModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSaveEditActivity} disabled={!editActivityName.trim()}>
+                Save Activity
               </button>
             </div>
           </div>

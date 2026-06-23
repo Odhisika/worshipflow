@@ -4,8 +4,11 @@ import { invoke } from '@tauri-apps/api/core';
 import { songApi, collectionApi, Song, CreateSongRequest, Collection } from '../api';
 import { presentationApi } from '../api/presentation';
 import { parseSongFile, ParsedSong } from '../utils/songImport';
-import { MdLibraryMusic, MdAdd, MdDownload, MdClose, MdPlayArrow, MdFolder, MdEdit, MdDelete, MdSettings, MdCheck, MdViewModule, MdViewList } from 'react-icons/md';
+import { MdLibraryMusic, MdAdd, MdDownload, MdClose, MdPlayArrow, MdFolder, MdEdit, MdDelete, MdSettings, MdCheck, MdViewModule, MdViewList, MdWallpaper } from 'react-icons/md';
+import BackgroundPicker from './BackgroundPicker';
 import './SongLibrary.css';
+
+const SONG_BG_KEY = 'songlib-bg-overrides';
 
 const SongLibrary: React.FC = () => {
   const location = useLocation();
@@ -25,6 +28,12 @@ const SongLibrary: React.FC = () => {
   } | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [songBgOverrides, setSongBgOverrides] = useState<Record<string, string | null>>(() => {
+    try { return JSON.parse(localStorage.getItem(SONG_BG_KEY) || '{}'); } catch { return {}; }
+  });
+  const [showBgPicker, setShowBgPicker] = useState(false);
+  const [pendingBgCallback, setPendingBgCallback] = useState<((bg: string | null) => void) | null>(null);
+  const [pendingBgInitial, setPendingBgInitial] = useState<string | null>(null);
 
   useEffect(() => {
     loadCollections();
@@ -119,6 +128,16 @@ const SongLibrary: React.FC = () => {
   const handleLoadToPresentation = async (song: Song) => {
     try {
       await presentationApi.loadSong(song.id);
+      const perSongBg = songBgOverrides[song.id];
+      if (perSongBg) {
+        await presentationApi.setBackground(perSongBg);
+      } else {
+        const { churchSettingsApi } = await import('../api/churchSettings');
+        const defaultBg = churchSettingsApi.get().defaultSongBackground;
+        if (defaultBg) {
+          await presentationApi.setBackground(defaultBg);
+        }
+      }
       navigate('/presentation');
     } catch (error) {
       console.error('Failed to load song to presentation:', error);
@@ -315,22 +334,39 @@ const SongLibrary: React.FC = () => {
                     onClick={() => handleLoadToPresentation(song)}
                     title="Load to Presentation"
                   >
-                    <MdPlayArrow size={14} /> Present
+                    <MdPlayArrow size={15} /> Present
                   </button>
                   <button
-                    className="btn-secondary btn-sm"
+                    className={`btn-icon-sm ${songBgOverrides[song.id] ? 'has-bg' : ''}`}
                     onClick={() => {
                       setEditingSong(song);
                       setShowAddModal(true);
                     }}
+                    title="Edit song"
                   >
-                    Edit
+                    <MdEdit size={16} />
                   </button>
                   <button
-                    className="btn-danger btn-sm"
-                    onClick={() => handleDelete(song.id)}
+                    className={`btn-icon-sm ${songBgOverrides[song.id] ? 'has-bg' : ''}`}
+                    onClick={() => {
+                      setPendingBgCallback(() => (bg: string | null) => {
+                        const updated = { ...songBgOverrides, [song.id]: bg };
+                        setSongBgOverrides(updated);
+                        localStorage.setItem(SONG_BG_KEY, JSON.stringify(updated));
+                      });
+                      setPendingBgInitial(songBgOverrides[song.id] ?? null);
+                      setShowBgPicker(true);
+                    }}
+                    title={songBgOverrides[song.id] ? 'Change background' : 'Set background'}
                   >
-                    Delete
+                    <MdWallpaper size={16} />
+                  </button>
+                  <button
+                    className="btn-icon-sm btn-icon-danger"
+                    onClick={() => handleDelete(song.id)}
+                    title="Delete song"
+                  >
+                    <MdDelete size={16} />
                   </button>
                 </div>
               </div>
@@ -358,22 +394,39 @@ const SongLibrary: React.FC = () => {
                     onClick={() => handleLoadToPresentation(song)}
                     title="Load to Presentation"
                   >
-                    <MdPlayArrow size={14} /> Present
+                    <MdPlayArrow size={15} /> Present
                   </button>
                   <button
-                    className="btn-secondary btn-sm"
+                    className={`btn-icon-sm ${songBgOverrides[song.id] ? 'has-bg' : ''}`}
                     onClick={() => {
                       setEditingSong(song);
                       setShowAddModal(true);
                     }}
+                    title="Edit song"
                   >
-                    Edit
+                    <MdEdit size={16} />
                   </button>
                   <button
-                    className="btn-danger btn-sm"
-                    onClick={() => handleDelete(song.id)}
+                    className={`btn-icon-sm ${songBgOverrides[song.id] ? 'has-bg' : ''}`}
+                    onClick={() => {
+                      setPendingBgCallback(() => (bg: string | null) => {
+                        const updated = { ...songBgOverrides, [song.id]: bg };
+                        setSongBgOverrides(updated);
+                        localStorage.setItem(SONG_BG_KEY, JSON.stringify(updated));
+                      });
+                      setPendingBgInitial(songBgOverrides[song.id] ?? null);
+                      setShowBgPicker(true);
+                    }}
+                    title={songBgOverrides[song.id] ? 'Change background' : 'Set background'}
                   >
-                    Delete
+                    <MdWallpaper size={16} />
+                  </button>
+                  <button
+                    className="btn-icon-sm btn-icon-danger"
+                    onClick={() => handleDelete(song.id)}
+                    title="Delete song"
+                  >
+                    <MdDelete size={16} />
                   </button>
                 </div>
               </div>
@@ -420,6 +473,25 @@ const SongLibrary: React.FC = () => {
           onCancel={() => {
             setBatchImport(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
+          }}
+        />
+      )}
+
+      {showBgPicker && (
+        <BackgroundPicker
+          currentBackground={pendingBgInitial ?? null}
+          onApply={(bg) => {
+            if (pendingBgCallback) {
+              pendingBgCallback(bg);
+              setPendingBgCallback(null);
+              setPendingBgInitial(null);
+            }
+            setShowBgPicker(false);
+          }}
+          onClose={() => {
+            setPendingBgCallback(null);
+            setPendingBgInitial(null);
+            setShowBgPicker(false);
           }}
         />
       )}

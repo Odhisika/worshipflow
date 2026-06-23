@@ -150,6 +150,11 @@ const Dashboard: React.FC = () => {
   const handleQuickPresentSong = async (songId: string) => {
     try {
       await presentationApi.loadSong(songId);
+      const { churchSettingsApi } = await import('../api/churchSettings');
+      const bg = churchSettingsApi.get().defaultSongBackground;
+      if (bg) {
+        await presentationApi.setBackground(bg);
+      }
       await presentationApi.startPresentation();
       loadPresentationState();
       navigate('/presentation');

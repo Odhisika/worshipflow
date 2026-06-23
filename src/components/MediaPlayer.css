@@ -134,6 +134,32 @@
     color: var(--spotify-green);
 }
 
+.playlist-remove-btn {
+    background: none;
+    border: none;
+    color: var(--spotify-text);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.playlist-row:hover .playlist-remove-btn {
+    opacity: 0.6;
+}
+
+.playlist-remove-btn:hover {
+    opacity: 1 !important;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+}
+
 .row-art {
     width: 48px;
     height: 48px;
@@ -294,12 +320,36 @@
 
 .track-item {
     display: grid;
-    grid-template-columns: 40px 4fr 3fr 3fr 1fr;
+    grid-template-columns: 40px 4fr 3fr 3fr 1fr 40px;
     padding: 0.5rem 1rem;
     border-radius: 4px;
     align-items: center;
     transition: background 0.2s;
     cursor: pointer;
+}
+
+.track-remove-btn {
+    background: none;
+    border: none;
+    color: var(--spotify-text);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.track-item:hover .track-remove-btn {
+    opacity: 0.6;
+}
+
+.track-remove-btn:hover {
+    opacity: 1 !important;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
 }
 
 .track-item:hover {

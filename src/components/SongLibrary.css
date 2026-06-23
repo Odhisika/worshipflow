@@ -166,7 +166,49 @@
 
 .song-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.btn-icon-sm {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  padding: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-icon-sm:hover {
+  background: var(--bg-tertiary, #1e1f26);
+  color: #f1f5f9;
+  border-color: var(--border-color, #2e2f38);
+}
+
+.btn-icon-sm.has-bg {
+  color: #60a5fa;
+}
+
+.btn-icon-sm.has-bg:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.btn-icon-sm.btn-icon-danger:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.song-list-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  align-items: center;
 }
 
 /* Modal Styles */
@@ -533,8 +575,4 @@
   white-space: nowrap;
 }
 
-.song-list-actions {
-  display: flex;
-  gap: 0.35rem;
-  flex-shrink: 0;
-}
+

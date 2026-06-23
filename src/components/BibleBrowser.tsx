@@ -28,17 +28,25 @@ function formatVersionLabel(version: string): string {
 const BibleBrowser: React.FC = () => {
   // Data state
   const [books, setBooks] = useState<BibleBook[]>([]);
-  const [selectedBook, setSelectedBook] = useState<string>('');
-  const [chapter, setChapter] = useState<number>(1);
+  const [selectedBook, setSelectedBook] = useState<string>(() => {
+    try { return localStorage.getItem('wf_bbook') || ''; } catch { return ''; }
+  });
+  const [chapter, setChapter] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem('wf_bchapter') || '1'); } catch { return 1; }
+  });
   const [verses, setVerses] = useState<BibleVerse[]>([]);
   const [verseCount, setVerseCount] = useState<number>(0);
-  const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
+  const [selectedVerse, setSelectedVerse] = useState<number | null>(() => {
+    try { const v = localStorage.getItem('wf_bverse'); return v ? parseInt(v) : null; } catch { return null; }
+  });
   const [showVerseDropdown, setShowVerseDropdown] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Version state
   const [versions, setVersions] = useState<string[]>([]);
-  const [activeVersion, setActiveVersion] = useState<string>('KJV');
+  const [activeVersion, setActiveVersion] = useState<string>(() => {
+    try { return localStorage.getItem('wf_bversion') || 'KJV'; } catch { return 'KJV'; }
+  });
   const [showVersionDropdown, setShowVersionDropdown] = useState(false);
   const versionBtnRef = useRef<HTMLButtonElement>(null);
   const versionListRef = useRef<HTMLDivElement>(null);
@@ -55,9 +63,21 @@ const BibleBrowser: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [activeTab, setActiveTab] = useState<'books' | 'search' | 'recent'>('books');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [fontSize, setFontSize] = useState<number>(1.25); // Font size in rem
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('wf_bsidebar') === 'true'; } catch { return false; }
+  });
+  const [fontSize, setFontSize] = useState<number>(() => {
+    try { return parseFloat(localStorage.getItem('wf_bfont') || '1.25'); } catch { return 1.25; }
+  });
   const [showImportModal, setShowImportModal] = useState(false);
+
+  // Persist Bible position
+  useEffect(() => { localStorage.setItem('wf_bbook', selectedBook); }, [selectedBook]);
+  useEffect(() => { localStorage.setItem('wf_bchapter', String(chapter)); }, [chapter]);
+  useEffect(() => { localStorage.setItem('wf_bverse', selectedVerse != null ? String(selectedVerse) : ''); }, [selectedVerse]);
+  useEffect(() => { localStorage.setItem('wf_bversion', activeVersion); }, [activeVersion]);
+  useEffect(() => { localStorage.setItem('wf_bsidebar', String(isSidebarCollapsed)); }, [isSidebarCollapsed]);
+  useEffect(() => { localStorage.setItem('wf_bfont', String(fontSize)); }, [fontSize]);
 
   // Derived state
   const currentBook = useMemo(() => books.find(b => b.name === selectedBook), [books, selectedBook]);

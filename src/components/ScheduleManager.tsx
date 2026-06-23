@@ -4,6 +4,7 @@ import { mediaApi } from '../api/media';
 import { presentationApi } from '../api/presentation';
 import { timerApi, TimerInfo } from '../api/timer';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import {
   MdDelete, MdEdit, MdAdd, MdPlayArrow, MdPause, MdStop, MdSkipNext,
   MdSave, MdClose, MdImage, MdMovie, MdFormatBold,
@@ -254,21 +255,19 @@ const ScheduleManager: React.FC = () => {
 
   // ── Playback ──
   const loadActivityToPresentation = async (activity: ScheduleActivity) => {
-    if (activity.background_path && activity.background_type !== 'none') {
-      await presentationApi.setBackground(activity.background_path);
-    }
+    const bgPath = activity.background_path && activity.background_type !== 'none' ? activity.background_path : null;
     const content = activity.content;
     if (activity.content_type === 'bible' && content.includes('|')) {
       const parts = content.split('|');
       if (parts.length >= 4) {
-        await presentationApi.addBibleSlide(parts[0], parseInt(parts[1]), parts[2], parts.slice(3).join('|'));
+        await presentationApi.addBibleSlide(parts[0], parseInt(parts[1]), parts[2], parts.slice(3).join('|'), bgPath);
         return;
       }
     }
     if (content.trim()) {
-      await presentationApi.addTextSlide(activity.name, content);
+      await presentationApi.addTextSlide(activity.name, content, bgPath);
     } else {
-      await presentationApi.addTextSlide(activity.name, '');
+      await presentationApi.addTextSlide(activity.name, '', bgPath);
     }
   };
 
@@ -291,7 +290,15 @@ const ScheduleManager: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      // Open output window on the projector/live monitor
+      await invoke('open_presentation_window');
+      // Clear any existing slides for a clean start
+      await presentationApi.clearPresentation();
+      // Start the live presentation
+      await presentationApi.startPresentation();
+      // Load activities into the timer
       await timerApi.loadService('schedule_' + schedule.id);
+      // Load the first activity with its background into the presentation
       const first = schedule.activities[0];
       await loadActivityToPresentation(first);
       setPlayIdx(0);

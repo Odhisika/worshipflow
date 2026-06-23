@@ -232,6 +232,9 @@ const OutputWindow: React.FC = () => {
     '--presentation-font-weight': settings.fontBold ? 'bold' : '400',
     '--presentation-font-style': settings.fontItalic ? 'italic' : 'normal',
     '--presentation-text-color': settings.textColor,
+    '--ticker-font-scale': settings.tickerFontSize,
+    '--ticker-bg-color': settings.tickerBgColor,
+    '--ticker-text-color': settings.tickerTextColor,
     ...(settings.textGradient ? { '--presentation-text-gradient': settings.textGradient } : {}),
   } as React.CSSProperties;
 
@@ -349,7 +352,6 @@ const OutputWindow: React.FC = () => {
             ref={videoRef}
             src={mediaSrc || mediaApi.getAssetUrl(currentSlide.media_path)}
             className="media-slide-video"
-            controls
             autoPlay
             loop
             playsInline
@@ -400,7 +402,6 @@ const OutputWindow: React.FC = () => {
           <audio
             ref={audioRef}
             src={mediaSrc || mediaApi.getAssetUrl(currentSlide.media_path)}
-            controls
             autoPlay
             className="audio-slide-player"
             onError={(e) => {

@@ -6,6 +6,7 @@ import {
     MdVolumeUp, MdVolumeOff, MdShuffle, MdRepeat, MdFullscreen,
     MdAudiotrack, MdMovie, MdGraphicEq, MdQueueMusic,
     MdPlaylistPlay, MdLibraryMusic, MdAdd, MdFolderOpen,
+    MdDelete,
 } from 'react-icons/md';
 import './MediaPlayer.css';
 
@@ -484,6 +485,34 @@ const MediaPlayer: React.FC = () => {
         } catch (e) { termLog('error', 'handleOpenVideoFolder error:', errorMessage(e)); }
     };
 
+    const handleRemoveAudio = (path: string) => {
+        if (window.confirm('Remove this track from the playlist?')) {
+            const idx = audioPlaylist.findIndex(f => f.path === path);
+            updateState(prev => ({
+                audioPlaylist: prev.audioPlaylist.filter(f => f.path !== path),
+                currentAudioIndex: idx >= 0 && idx < prev.currentAudioIndex
+                    ? prev.currentAudioIndex - 1
+                    : idx === prev.currentAudioIndex
+                        ? -1
+                        : prev.currentAudioIndex,
+            }));
+        }
+    };
+
+    const handleRemoveVideo = (path: string) => {
+        if (window.confirm('Remove this video from the playlist?')) {
+            const idx = videoPlaylist.findIndex(f => f.path === path);
+            updateState(prev => ({
+                videoPlaylist: prev.videoPlaylist.filter(f => f.path !== path),
+                currentVideoIndex: idx >= 0 && idx < prev.currentVideoIndex
+                    ? prev.currentVideoIndex - 1
+                    : idx === prev.currentVideoIndex
+                        ? -1
+                        : prev.currentVideoIndex,
+            }));
+        }
+    };
+
     const playVideo = (index: number) => {
         if (index < 0 || index >= videoPlaylist.length) return;
         const file = videoPlaylist[index];
@@ -556,6 +585,9 @@ const MediaPlayer: React.FC = () => {
                                             <span className="row-title">{file.name}</span>
                                             <span className="row-meta">{file.extension.toUpperCase()} · {fmt(trackDurations[file.path] ?? 0)}</span>
                                         </div>
+                                        <button className="playlist-remove-btn" onClick={(e) => { e.stopPropagation(); handleRemoveAudio(file.path); }} title="Remove track">
+                                            <MdDelete size={14} />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -581,6 +613,9 @@ const MediaPlayer: React.FC = () => {
                                             <span className="row-title">{file.name}</span>
                                             <span className="row-meta">{file.extension.toUpperCase()}</span>
                                         </div>
+                                        <button className="playlist-remove-btn" onClick={(e) => { e.stopPropagation(); handleRemoveVideo(file.path); }} title="Remove video">
+                                            <MdDelete size={14} />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -631,6 +666,7 @@ const MediaPlayer: React.FC = () => {
                                         <span>Title</span>
                                         <span>Format</span>
                                         <span>Duration</span>
+                                        <span></span>
                                     </div>
                                     {audioPlaylist.map((file, idx) => (
                                         <div
@@ -650,6 +686,9 @@ const MediaPlayer: React.FC = () => {
                                             </div>
                                             <span className="t-album">{file.extension.toUpperCase()}</span>
                                             <span className="t-duration">{fmt(trackDurations[file.path] ?? 0)}</span>
+                                            <button className="track-remove-btn" onClick={(e) => { e.stopPropagation(); handleRemoveAudio(file.path); }} title="Remove track">
+                                                <MdDelete size={14} />
+                                            </button>
                                         </div>
                                     ))}
                                 </div>

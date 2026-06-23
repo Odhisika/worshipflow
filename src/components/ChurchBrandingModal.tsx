@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { emit } from '@tauri-apps/api/event';
 import { churchSettingsApi, ChurchSettings, PresentationStyle } from '../api/churchSettings';
 import { mediaApi } from '../api/media';
-import { MdCameraAlt, MdClose, MdPalette, MdSubtitles, MdTextFields, MdCheckCircle } from 'react-icons/md';
+import { MdCameraAlt, MdClose, MdPalette, MdSubtitles, MdTextFields, MdCheckCircle, MdColorLens } from 'react-icons/md';
 import './ChurchBrandingModal.css';
 
 interface Props {
@@ -162,6 +162,50 @@ const ChurchBrandingModal: React.FC<Props> = ({ onClose }) => {
                       onChange={e => setSettings({ ...settings, tickerText: e.target.value })}
                       placeholder="e.g. Welcome to Sunday Service! Join our mid-week Bible study..."
                     />
+                  </div>
+                  <div className="form-group">
+                    <label>Ticker Font Size ({Math.round(settings.tickerFontSize * 100)}%)</label>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={settings.tickerFontSize}
+                      onChange={e => setSettings({ ...settings, tickerFontSize: parseFloat(e.target.value) })}
+                      className="branding-slider"
+                    />
+                  </div>
+                  <div className="ticker-color-row">
+                    <div className="form-group">
+                      <label>Ticker Background</label>
+                      <label className="ticker-color-label">
+                        <input
+                          type="color"
+                          value={settings.tickerBgColor}
+                          onChange={e => setSettings({ ...settings, tickerBgColor: e.target.value })}
+                          className="ticker-color-input"
+                        />
+                        <span className="ticker-color-swatch" style={{ background: settings.tickerBgColor }}>
+                          <MdColorLens size={14} />
+                        </span>
+                        <span className="ticker-color-hex">{settings.tickerBgColor}</span>
+                      </label>
+                    </div>
+                    <div className="form-group">
+                      <label>Ticker Text Color</label>
+                      <label className="ticker-color-label">
+                        <input
+                          type="color"
+                          value={settings.tickerTextColor}
+                          onChange={e => setSettings({ ...settings, tickerTextColor: e.target.value })}
+                          className="ticker-color-input"
+                        />
+                        <span className="ticker-color-swatch" style={{ background: settings.tickerTextColor }}>
+                          <MdColorLens size={14} />
+                        </span>
+                        <span className="ticker-color-hex">{settings.tickerTextColor}</span>
+                      </label>
+                    </div>
                   </div>
                 </>
               )}

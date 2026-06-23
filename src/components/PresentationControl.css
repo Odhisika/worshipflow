@@ -362,21 +362,51 @@
 }
 
 .activity-item-card {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.4rem 0.5rem;
   background: #15161b;
   border: 1px solid var(--border-color, #2e2f38);
   border-radius: 4px;
   margin-bottom: 0.35rem;
-  cursor: pointer;
   transition: all 0.12s ease;
+  user-select: none;
 }
 
 .activity-item-card:hover {
   background: var(--bg-tertiary, #282930);
   border-color: var(--accent-blue, #3b82f6);
+}
+
+.activity-item-card.dragging {
+  opacity: 0.4;
+}
+
+.activity-item-card.drag-over-top {
+  border-top: 2px solid var(--accent-blue, #3b82f6);
+}
+
+.activity-item-card.drag-over-bottom {
+  border-bottom: 2px solid var(--accent-blue, #3b82f6);
+}
+
+.activity-main-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.drag-handle {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #64748b);
+  cursor: grab;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.drag-handle:hover {
+  color: #f1f5f9;
+  background: var(--bg-secondary, #1e1f26);
 }
 
 .activity-index {
@@ -390,6 +420,12 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.activity-details {
+  flex: 1;
+  min-width: 0;
 }
 
 .activity-details h4 {
@@ -403,6 +439,56 @@
   font-size: 0.7rem;
   color: var(--text-secondary, #94a3b8);
   margin: 2px 0 0 0;
+}
+
+.activity-actions {
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  flex-shrink: 0;
+}
+
+.activity-item-card:hover .activity-actions {
+  opacity: 1;
+}
+
+.activity-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.activity-action-btn:hover {
+  background: var(--bg-secondary, #1e1f26);
+  color: #f1f5f9;
+}
+
+.activity-action-btn.btn-danger-outline:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.activity-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.activity-action-btn:disabled:hover {
+  background: none;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.text-slide-textarea {
+  resize: vertical;
+  font-family: inherit;
 }
 
 /* Middle Panel: Slide Grid */
@@ -934,6 +1020,9 @@
 }
 
 .pane-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.02);
   cursor: pointer;
@@ -954,6 +1043,8 @@
 .pane-item-info {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .pane-item-info strong {
@@ -966,6 +1057,30 @@
   font-size: 0.68rem;
   color: var(--text-secondary, #94a3b8);
   margin-top: 2px;
+}
+
+.pane-item-remove-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pane-item-row:hover .pane-item-remove-btn {
+  opacity: 1;
+}
+
+.pane-item-remove-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .song-grid-layout {
